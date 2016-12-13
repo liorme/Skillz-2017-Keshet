@@ -22,8 +22,14 @@ def handle_pirates(game):
     moves = []
     pirates = game.get_my_living_pirates()
     islands = game.get_not_my_islands()
+    enemy_drones = game.get_enemy_living_drones()
+    for pirate in pirates:
+        if try_attack(pirate, game):
+            pirates.remove(pirate)
+
     for i in xrange(len(pirates)):
         if len(islands) > 0:
+            moves = []
             for pirate in pirates:
                 min_dist = sys.maxint
                 closest_island = 0
@@ -31,19 +37,38 @@ def handle_pirates(game):
                     if pirate.distance(island) < min_dist:
                         min_dist = pirate.distance(island)
                         closest_island = island
-                move = [pirate, island, min_dist]
+                move = [pirate, closest_island, min_dist]
                 moves.append(move)
-
             min_move = [0,0,sys.maxint]
             for move in moves:
                 if move[2] < min_move[2]:
                     min_move = move
-
             sail_options = game.get_sail_options(min_move[0], min_move[1])
             game.set_sail(min_move[0], sail_options[0])
             if pirates.count(min_move[0]) == 1: pirates.remove(min_move[0])
-            #game.debug(pirates)
-            #game.debug(min_move[0])
+            if islands.count(min_move[1]) == 1: islands.remove(min_move[1])
+
+
+        elif len(enemy_drones) > 0:
+            moves = []
+            for pirate in pirates:
+                min_dist = sys.maxint
+                closest_drone = 0
+                for drone in enemy_drones:
+                    if pirate.distance(drone) < min_dist:
+                        min_dist = pirate.distance(drone)
+                        closest_drone = drone
+                move = [pirate, closest_drone, min_dist]
+                moves.append(move)
+            min_move = [0,0,sys.maxint]
+            for move in moves:
+                if move[2] < min_move[2]:
+                    min_move = move
+            sail_options = game.get_sail_options(min_move[0], min_move[1])
+            game.set_sail(min_move[0], sail_options[0])
+            if pirates.count(min_move[0]) == 1: pirates.remove(min_move[0])
+            if enemy_drones.count(min_move[1]) == 1: enemy_drones.remove(min_move[1])
+
 
 
 
