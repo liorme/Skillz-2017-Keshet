@@ -2,6 +2,7 @@
 This is an example for a bot.
 """
 from Pirates import *
+import random
 
 
 def do_turn(game):
@@ -23,11 +24,11 @@ def handle_pirates(game):
     pirates = game.get_my_living_pirates()
     islands = game.get_not_my_islands()
     enemy_drones = game.get_enemy_living_drones()
+    enemy_ships = game.get_enemy_living_pirates()
     for pirate in pirates:
         if try_attack(pirate, game):
             pirates.remove(pirate)
-
-    for i in xrange(len(pirates)):
+    while len(pirates) > 0:
         if len(islands) > 0:
             moves = []
             for pirate in pirates:
@@ -70,13 +71,68 @@ def handle_pirates(game):
             if enemy_drones.count(min_move[1]) == 1: enemy_drones.remove(min_move[1])
 
 
+        elif len(enemy_ships) > 0:
+            moves = []
+            for pirate in pirates:
+                min_dist = sys.maxint
+                closest_ship = 0
+                for ship in enemy_ships:
+                    if pirate.distance(ship) < min_dist:
+                        min_dist = pirate.distance(ship)
+                        closest_ship = ship
+                move = [pirate, closest_ship, min_dist]
+                moves.append(move)
+            min_move = [0,0,sys.maxint]
+            for move in moves:
+                if move[2] < min_move[2]:
+                    min_move = move
+            sail_options = game.get_sail_options(min_move[0], min_move[1])
+            game.set_sail(min_move[0], sail_options[0])
+            if pirates.count(min_move[0]) == 1: pirates.remove(min_move[0])
+            if enemy_ships.count(min_move[1]) == 1: enemy_ships.remove(min_move[1])
+        
+
+        else:
+            destination = Location(23,23)
+            sail_options = game.get_sail_options(pirates[0], destination)
+            game.set_sail(pirates[0], sail_options[0])
+            pirates.remove(pirates[0])
+
+
+
+"""
+        else:
+            gathered_pirates = []
+            for j in pirates:
+                if j.location == pirates[0].location: gathered_pirates.append(j)
+            if len(gathered_pirates)>1:
+                for j in gathered_pirates:
+                    min_dist = sys.maxint
+                    closest_ship = 0
+                    for ship in enemy_ships:
+                        if pirate.distance(ship) < min_dist:
+                            min_dist = pirate.distance(ship)
+                            closest_ship = ship
+                    move = [j, closest_ship, min_dist]
+                    destination = move[1]
+                    sail_options = game.get_sail_options(j, destination)
+                    game.set_sail(j, sail_options[0])
+                    pirates.remove(j)
+
+            else:
+                destination = Location(23,23)
+                sail_options = game.get_sail_options(pirates[0], destination)
+                game.set_sail(pirates[0], sail_options[0])
+                pirates.remove(pirates[0])
+"""
 
 
 
 
 
 
-    """
+
+"""
 	processed_islands = []
 	for pirate in game.get_my_living_pirates():
         # Try to attack, if you didn't - move to an island
@@ -111,7 +167,8 @@ def handle_drones(game):
         # Get sail options
         sail_options = game.get_sail_options(drone, destination)
         # Set sail!
-        game.set_sail(drone, sail_options[0])
+        sail_option = random.randint(0, (len(sail_options) - 1))
+        game.set_sail(drone, sail_options[sail_option])
 
 
 def try_attack(pirate, game):

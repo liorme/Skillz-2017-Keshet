@@ -2,7 +2,7 @@
 This is an example for a bot.
 """
 from Pirates import *
-
+import random
 
 def do_turn(game):
     """
@@ -58,7 +58,8 @@ def handle_drones(game):
         # Get sail options
         sail_options = game.get_sail_options(drone, destination)
         # Set sail!
-        game.set_sail(drone, sail_options[0])
+        sail_option = random.randint(0, (len(sail_options) - 1))
+        game.set_sail(drone, sail_options[sail_option])
 
 
 def try_attack(pirate, game):
