@@ -45,7 +45,7 @@ def handle_pirates(game):
                 if move[2] < min_move[2]:
                     min_move = move
             sail_options = game.get_sail_options(min_move[0], min_move[1])
-            game.set_sail(min_move[0], sail_options[0])
+            game.set_sail(min_move[0], sail_options[(len(sail_options)/2)])
             if pirates.count(min_move[0]) == 1: pirates.remove(min_move[0])
             if islands.count(min_move[1]) == 1: islands.remove(min_move[1])
 
@@ -66,7 +66,7 @@ def handle_pirates(game):
                 if move[2] < min_move[2]:
                     min_move = move
             sail_options = game.get_sail_options(min_move[0], min_move[1])
-            game.set_sail(min_move[0], sail_options[0])
+            game.set_sail(min_move[0], sail_options[(len(sail_options)/2)])
             if pirates.count(min_move[0]) == 1: pirates.remove(min_move[0])
             if enemy_drones.count(min_move[1]) == 1: enemy_drones.remove(min_move[1])
 
@@ -87,7 +87,7 @@ def handle_pirates(game):
                 if move[2] < min_move[2]:
                     min_move = move
             sail_options = game.get_sail_options(min_move[0], min_move[1])
-            game.set_sail(min_move[0], sail_options[0])
+            game.set_sail(min_move[0], sail_options[(len(sail_options)/2)])
             if pirates.count(min_move[0]) == 1: pirates.remove(min_move[0])
             if enemy_ships.count(min_move[1]) == 1: enemy_ships.remove(min_move[1])
         
@@ -95,7 +95,7 @@ def handle_pirates(game):
         else:
             destination = Location(23,23)
             sail_options = game.get_sail_options(pirates[0], destination)
-            game.set_sail(pirates[0], sail_options[0])
+            game.set_sail(pirates[0], sail_options[(len(sail_options)/2)])
             pirates.remove(pirates[0])
 
 
