@@ -55,67 +55,11 @@ def handle_pirates(game):
             game.set_sail(pirates[0], sail_options[(len(sail_options) / 2)])
             pirates.remove(pirates[0])
 
-
-"""
-        else:
-            gathered_pirates = []
-            for j in pirates:
-                if j.location == pirates[0].location: gathered_pirates.append(j)
-            if len(gathered_pirates)>1:
-                for j in gathered_pirates:
-                    min_dist = sys.maxint
-                    closest_ship = 0
-                    for ship in enemy_ships:
-                        if pirate.distance(ship) < min_dist:
-                            min_dist = pirate.distance(ship)
-                            closest_ship = ship
-                    move = [j, closest_ship, min_dist]
-                    destination = move[1]
-                    sail_options = game.get_sail_options(j, destination)
-                    game.set_sail(j, sail_options[0])
-                    pirates.remove(j)
-            else:
-                destination = Location(23,23)
-                sail_options = game.get_sail_options(pirates[0], destination)
-                game.set_sail(pirates[0], sail_options[0])
-                pirates.remove(pirates[0])
-"""
-
-"""
-	processed_islands = []
-	for pirate in game.get_my_living_pirates():
-        # Try to attack, if you didn't - move to an island
-		if not try_attack(pirate, game):
-			# Choose destination
-			destinations = game.get_not_my_islands()
-			if len(processed_islands) != 0:
-				for i in processed_islands:
-					if destinations.count(i) != 0:destinations.remove(i)
-			if len(destinations)>0:destination = destinations[0]
-			else:destination = Location(23,23)
-			processed_islands.append(destination)
-			# Get sail options
-			sail_options = game.get_sail_options(pirate, destination)
-			# Set sail!
-			game.set_sail(pirate, sail_options[0])
-			# Print a message
-			#game.debug('pirate ' + str(pirate) + ' sails to ' + str(sail_options[0]))
-"""
-
-
+		
 def handle_drones(game):
-    """
-    Gives orders to my drones
-    :param game: the current game state
-    :type game: PiratesGame
-    """
-    # Go over all of my drones
     for drone in game.get_my_living_drones():
-        # Choose a destination
         destination = game.get_my_cities()[0]
-        # Get sail options
         sail_options = game.get_sail_options(drone, destination)
-        # Set sail!
         sail_option = random.randint(0, (len(sail_options) - 1))
         game.set_sail(drone, sail_options[sail_option])
 
