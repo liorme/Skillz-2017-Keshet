@@ -1,6 +1,3 @@
-"""
-This is an example for a bot.
-"""
 from Pirates import *
 import random
 
@@ -8,7 +5,6 @@ import random
 def do_turn(game):
     """
     Makes the bot run a single turn
-
     :param game: the current game state
     :type game: PiratesGame
     """
@@ -19,7 +15,7 @@ def do_turn(game):
 
 
 def handle_pirates(game):
-	# Go over all of my pirates
+    # Go over all of my pirates
     moves = []
     pirates = game.get_my_living_pirates()
     islands = game.get_not_my_islands()
@@ -30,74 +26,34 @@ def handle_pirates(game):
             pirates.remove(pirate)
     while len(pirates) > 0:
         if len(islands) > 0:
-            moves = []
-            for pirate in pirates:
-                min_dist = sys.maxint
-                closest_island = 0
-                for island in islands:
-                    if pirate.distance(island) < min_dist:
-                        min_dist = pirate.distance(island)
-                        closest_island = island
-                move = [pirate, closest_island, min_dist]
-                moves.append(move)
-            min_move = [0,0,sys.maxint]
-            for move in moves:
-                if move[2] < min_move[2]:
-                    min_move = move
+            min_move = best_move(pirates, islands)
             sail_options = game.get_sail_options(min_move[0], min_move[1])
-            game.set_sail(min_move[0], sail_options[(len(sail_options)/2)])
+            game.set_sail(min_move[0], sail_options[(len(sail_options) / 2)])
             if pirates.count(min_move[0]) == 1: pirates.remove(min_move[0])
             if islands.count(min_move[1]) == 1: islands.remove(min_move[1])
 
 
         elif len(enemy_drones) > 0:
-            moves = []
-            for pirate in pirates:
-                min_dist = sys.maxint
-                closest_drone = 0
-                for drone in enemy_drones:
-                    if pirate.distance(drone) < min_dist:
-                        min_dist = pirate.distance(drone)
-                        closest_drone = drone
-                move = [pirate, closest_drone, min_dist]
-                moves.append(move)
-            min_move = [0,0,sys.maxint]
-            for move in moves:
-                if move[2] < min_move[2]:
-                    min_move = move
+            min_move = best_move(pirates, enemy_drones)
             sail_options = game.get_sail_options(min_move[0], min_move[1])
-            game.set_sail(min_move[0], sail_options[(len(sail_options)/2)])
+            game.set_sail(min_move[0], sail_options[(len(sail_options) / 2)])
             if pirates.count(min_move[0]) == 1: pirates.remove(min_move[0])
             if enemy_drones.count(min_move[1]) == 1: enemy_drones.remove(min_move[1])
 
 
         elif len(enemy_ships) > 0:
-            moves = []
-            for pirate in pirates:
-                min_dist = sys.maxint
-                closest_ship = 0
-                for ship in enemy_ships:
-                    if pirate.distance(ship) < min_dist:
-                        min_dist = pirate.distance(ship)
-                        closest_ship = ship
-                move = [pirate, closest_ship, min_dist]
-                moves.append(move)
-            min_move = [0,0,sys.maxint]
-            for move in moves:
-                if move[2] < min_move[2]:
-                    min_move = move
+            min_move = best_move(pirates, enemy_ships)
             sail_options = game.get_sail_options(min_move[0], min_move[1])
-            game.set_sail(min_move[0], sail_options[(len(sail_options)/2)])
+            game.set_sail(min_move[0], sail_options[(len(sail_options) / 2)])
             if pirates.count(min_move[0]) == 1: pirates.remove(min_move[0])
             if enemy_ships.count(min_move[1]) == 1: enemy_ships.remove(min_move[1])
-        
+
 
         else:
-            destination = Location(23,23)
+            destination = Location(23, 23)
             sail_options = game.get_sail_options(pirates[0], destination)
-            game.set_sail(pirates[0], sail_options[(len(sail_options)/2)])
+            game.set_sail(pirates[0], sail_options[(len(sail_options) / 2)])
             pirates.remove(pirates[0])
-
 
 
 """
@@ -118,19 +74,12 @@ def handle_pirates(game):
                     sail_options = game.get_sail_options(j, destination)
                     game.set_sail(j, sail_options[0])
                     pirates.remove(j)
-
             else:
                 destination = Location(23,23)
                 sail_options = game.get_sail_options(pirates[0], destination)
                 game.set_sail(pirates[0], sail_options[0])
                 pirates.remove(pirates[0])
 """
-
-
-
-
-
-
 
 """
 	processed_islands = []
@@ -153,10 +102,10 @@ def handle_pirates(game):
 			#game.debug('pirate ' + str(pirate) + ' sails to ' + str(sail_options[0]))
 """
 
+
 def handle_drones(game):
     """
     Gives orders to my drones
-
     :param game: the current game state
     :type game: PiratesGame
     """
@@ -174,7 +123,6 @@ def handle_drones(game):
 def try_attack(pirate, game):
     """
     Makes the pirate try to attack. Returns True if it did.
-
     :param pirate: the attacking pirate
     :type pirate: Pirate
     :param game: the current game state
@@ -189,10 +137,26 @@ def try_attack(pirate, game):
             # Fire!
             game.attack(pirate, enemy)
             # Print a message
-            #game.debug('pirate ' + str(pirate) + ' attacks ' + str(enemy))
+            # game.debug('pirate ' + str(pirate) + ' attacks ' + str(enemy))
             # Did attack
             return True
 
     # Didn't attack
     return False
 
+def best_move(pirates, list):
+    moves = []
+    for pirate in pirates:
+        min_dist = sys.maxint
+        closest_aircraft = 0
+        for aircraft in list:
+            if pirate.distance(aircraft) < min_dist:
+                min_dist = pirate.distance(aircraft)
+                closest_aircraft = aircraft
+        move = [pirate, closest_aircraft, min_dist]
+        moves.append(move)
+    min_move = [0, 0, sys.maxint]
+    for move in moves:
+        if move[2] < min_move[2]:
+            min_move = move
+    return min_move
