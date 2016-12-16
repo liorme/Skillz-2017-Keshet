@@ -2,6 +2,9 @@ from Pirates import *
 import random
 
 
+drones_state = 0
+
+
 def do_turn(game):
     """
     Makes the bot run a single turn
