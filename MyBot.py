@@ -57,11 +57,27 @@ def handle_pirates(game):
 
 		
 def handle_drones(game):
-    for drone in game.get_my_living_drones():
-        destination = game.get_my_cities()[0]
-        sail_options = game.get_sail_options(drone, destination)
-        sail_option = random.randint(0, (len(sail_options) - 1))
-        game.set_sail(drone, sail_options[sail_option])
+    global drones_state
+    living_drones = game.get_my_living_drones()
+    if len(living_drones) < 30 and game.get_max_turns()- game.get_turn() > 10 and drones_state != 1:
+        for drone in living_drones:
+            # Choose a destination
+            destination = Location(24,17)
+            # Get sail options
+            sail_options = game.get_sail_options(drone, destination)
+            # Set sail!
+            sail_option = random.randint(0, (len(sail_options) - 1))
+            game.set_sail(drone, sail_options[sail_option])
+    else:
+        drones_state = 1
+        for drone in living_drones:
+            # Choose a destination
+            destination = game.get_my_cities()[0]
+            # Get sail options
+            sail_options = game.get_sail_options(drone, destination)
+            # Set sail!
+            sail_option = random.randint(0, (len(sail_options) - 1))
+            game.set_sail(drone, sail_options[sail_option])
 
 
 def try_attack(pirate, game):
