@@ -1,17 +1,24 @@
 """
 This is an example for a bot.
 """
+
+# Imports
 from Pirates import *
 import random
 import copy
 import math
 
-# Class defenitions
+# Class Definitions
+
+
 class Action:
-    def __init__(self,type,org,target):
-        self._type = type
-        self._org = org
-        self._target = target
+    """
+    A class that defines an action that the bot should preform
+    """
+    def __init__(self, type, org, target):
+        self._type = type  # type of the action
+        self._org = org  # origination of the action - who does it
+        self._target = target  # target of the action - to where or on who
 
     def get_type(self):
         """
@@ -38,53 +45,111 @@ class Action:
         return self._org
 
 # Constants and global variables
-N = 10 # number of trials
-turns = 4 # number of turns per trial
+N = 100  # number of trials
+turns = 4  # number of turns per trial
+# calculate the distance between my city an enemy city
+# set half of that distance to be the distance drones should "wait" around the city
+min_drone_stack = 12  # number of drones to stack until mass attack
+
+# Function Definitions
 
 
 def switch_player(game):
     """
     switches "myself" to enemy and vice-versa
     :param game:
-    :return:
     """
     me = game.get_myself()
-    if me.id == me_id:
-        me.id = enemy_id
-    else:
-        me.id = me_id
+    if me.id == me_id:  # if I'm original me
+        me.id = enemy_id  # make me the enemy
+    else:  # if Im the original enemy
+        me.id = me_id  # make me myself
 
-def play_rand_turn(game):
+
+def handle_pirates(game, turn_acts, save_acts):
+    """
+    give command to pirates this random turn
+    :param game: the game to play on
+    :type game: PiratesGame
+    :param turn_acts: list to save actions
+    :type turn_acts: list[Action]
+    :param save_acts: flag that tells if we should save the acts we preform (so we can do them in the real game)
+    :type save_acts: boolean
+    """
+    for pirate in game.get_my_living_pirates():  # give command to each pirate
+        r = random.random()  # pick a random number, r in range [0,1)
+        attacked = False  # flag to check if pirate attacked or not
+        if r < 0.5:  # 50% chance to attack
+            can_be_attacked = []  # find and store all enemies in range of attack
+            for enemy in game.get_enemy_living_aircrafts():  # loop over al enemies
+                if pirate.in_attack_range(enemy):
+                    can_be_attacked.append(enemy)  # add to list if in range
+            if len(can_be_attacked) > 0:  # if we can attack at least one enemy
+                rnd_target = random.choice(can_be_attacked)  # choose a random enemy in range
+                game.attack(pirate, rnd_target)  # attack the chosen enemy
+                attacked = True  # set flag to true - we just attacked
+                if save_acts:
+                    turn_acts.append(Action("ATTACK", pirate, rnd_target))
+        elif r > 0.5 or (not attacked):  # 50% chance to move
+            islands = game.get_all_islands()
+            dest = random.choice(islands)  # pick a random island as destination
+            sails_ops = game.get_sail_options(pirate, dest)  # find all ways to sail to the island
+            if len(sails_ops) < 0:  # if we can't reach the island
+                dest = game.get_my_cities()[0]  # sail to my city as a default move
+                sails_ops = game.get_sail_options(pirate, dest)
+            way = random.choice(sails_ops)  # choose a random way to reach the destination
+            game.set_sail(pirate, way)  # sail to the chosen island in the chosen way
+            if save_acts:
+                turn_acts.append(Action("MOVE", pirate, dest))
+
+
+def handle_drones(game, turn_acts, save_acts):
+    """
+    give command to drones this random turn
+    :param game: the game to play on
+    :type game: PiratesGame
+    :param turn_acts: list to save actions
+    :type turn_acts: list[Action]
+    :param save_acts: flag that tells if we should save the acts we preform (so we can do them in the real game)
+    :type save_acts: boolean
+    """
+    num_waiting = 0  # count how many drones ware "waiting" to be satcked
+    waiting = []  # save all waiting drones
+    not_waiting = []  # save all not-waiting drones
+    for drone in game.get_my_living_drones():  # count how many drones are waiting and sort them by type
+        if drone.distance(game.get_my_cities()[0]) == drone_wait_dist:
+            num_waiting += 1
+            waiting.append(drone)
+        else:
+            not_waiting.append(drone)
+    if num_waiting > min_drone_stack:  # if we have enough drones waiting
+        for drone in waiting:  # sail them all to my city
+            game.set_sail(drone, game.get_my_cities()[0])
+            if save_acts:
+                turn_acts.append(Action("MOVE", drone, game.get_my_cities()[0]))
+    for drone in not_waiting:  # sail all not-waiting drones to the city range
+        angle = random.randrange(0, 359)  # choose a random degrees in the "circle" around the city
+        loc = Location(drone_wait_dist * math.sin(angle),
+                       drone_wait_dist * math.cos(angle))  # add a the chosen location
+        ops = game.get_sail_options(drone, loc)
+        way = random.choice(ops)
+        game.set_sail(drone, way)
+        if save_acts:
+            turn_acts.append(Action("MOVE", drone, way))
+
+
+def play_rand_turn(game, save_acts):
     """
     plays one random turn
     :param game: the game to play on
     :type game: PiratesGame
+    :param save_acts: flag that tells if we should save the acts we preform (so we can do them in the real game)
+    :type save_acts: boolean
     """
-    turn = []
-    for pirate in game.get_my_living_pirates():
-        r = random.random()
-        attacked = False
-        if r < 0.5:  # 50% chance to attack
-            can_be_attacked = []
-            for enemy in game.get_enemy_living_aircrafts():
-                if pirate.in_attack_range(enemy):
-                    can_be_attacked.append(enemy)
-            if len(can_be_attacked) > 0:
-                turn.append(Action("ATTACK", pirate, random.choice(can_be_attacked)))
-                attacked = True
-        elif r > 0.5 or (not attacked):  # 50% chance to make a move
-            islands = game.get_all_islands()
-            rand_island = random.choice(islands)
-            sails_ops = game.get_sail_options(pirate, rand_island)
-            if len(sails_ops) > 0:
-                turn.append(Action("MOVE", pirate, random.choice(sails_ops)))
-    rad = abs(game.get_my_cities()[0].location.col -game.get_enemy_cities()[0].location.col) / 2
-    for drone in game.get_my_living_drones():
-        angle = random.randrange(0,359)
-        loc = Location(rad*math.sin(angle),rad*math.cos(angle))
-        game.set_sail(drone,loc)
-    return turn
-
+    turn_acts = []  # save the actions we intend to preform
+    handle_pirates(game, turn_acts, save_acts)  # handle pirate commands
+    handle_drones(game, turn_acts, save_acts)  # handle drone commands
+    return turn_acts
 
 
 def score_game(game):
@@ -100,8 +165,8 @@ def score_game(game):
     - (-k) * average distance between enemy drone and enemy city
 
     :param game
-    :type PirateGame
-    :return: score of gameboard
+    :type game: PirateGame
+    :return: score of game board
     :type: float
     """
 
@@ -116,43 +181,72 @@ def score_game(game):
     # Score takes into consideration the dif between num of islands
     score += 2 * (len(game.get_my_islands()) - len(game.get_enemy_islands()))
 
-    #Score takes into cosideration the dif between num of drones:
+    # Score takes into cosideration the dif between num of drones:
     score += 0.5 * (len(game.get_my_living_drones()) - len(game.get_enemy_living_drones()))
 
-    # Score takes into cosideration the average distance between my drone and my city
+    # Score takes into consideration the average distance between my drone and my city
     if len(game.get_my_living_drones()) > 0:
         my_drone_to_city_distances = [drone.distance(game.get_my_cities()[0]) for drone in game.get_my_living_drones()]
         score += 0.1 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
     if len(game.get_enemy_living_drones()) > 0:
-        enemy_drone_to_city_distances = [drone.distance(game.get_enemy_cities()[0]) for drone in game.get_enemy_living_drones()]
+        enemy_drone_to_city_distances =\
+            [drone.distance(game.get_enemy_cities()[0]) for drone in game.get_enemy_living_drones()]
         score -= 0.1 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
 
     return score
 
 
-
 def run_trial(game):
-    set = False
-    my_action = None
-    for dummy_i in range(2*turns):
-        act = play_rand_turn(game)
-        if not set:
-            my_action = act
-        switch_player(game)
-    score = score_game(game)
-    return [score,my_action]
+    """
+    run a trial of 6 turns of the game
+    :param game: the game to play on
+    :type game: PiratesGame
+    :return: a list with 2 parts, the first is the score of the trial, the second is the list of actions to preform
+    :rtype list[int,list[Action]]
+    """
+    # do the first turn and save the actions
+    my_action = play_rand_turn(game, True)  # play a turn, save actions
+    switch_player(game)  # switch player
+    # we need to do "turns" number of turns, so twice the number of plays (each turn is one me play one enemy play)
+    # we did above the first turn, so we need 2*(turns-1) plays + 1 play to finish turn 1, so 2*turns-1 play
+    for dummy_i in range(2*turns-1):
+        play_rand_turn(game, False)  # play a turn, don't save actions
+        switch_player(game)  # switch player
+    score = score_game(game)  # calculate score
+    return [score, my_action]
 
-def choose_best_acts(scores,actions):
-    maxs = max(scores)
-    idx = scores.index(maxs)
-    return actions[idx]
 
-def execute_turn(best,game):
-    for act in best:
-        if act.get_type() == "MOVE":
-            game.set_sail(act.get_org(),act.get_target())
-        else:
-            game.attack(act.get_org(),act.get_target())
+def choose_best_acts(scores, actions):
+    """
+    finds the best score in scores and returns the corresponding set of actions
+    :param scores: list of scores of all action sets
+    :type scores: list[int
+    :param actions: list of all sets of actions
+    :type actions: list[list[Action]]
+    :return: the best action set
+    :rtype: list[Action]
+    """
+    maxs = max(scores)  # find the best score
+    idx = scores.index(maxs)  # find the index of the score
+    return actions[idx]  # return the set of actions in the same index
+    # (score[n] corresponds to actions[n] set of actions)
+
+
+def execute_turn(best, game):
+    """
+    do the turn, i.e. the game calls
+    :param best: the set of actions with the highest score
+    :type best: ;ist[Actions]
+    :param game: the game to do the commands
+    :type game: PiratesGame
+    """
+
+    for act in best:  # go over all acts in set
+        if act.get_type() == "MOVE":  # if a move command, move the org to target
+            game.set_sail(act.get_org(), act.get_target())
+        else:  # if not move -> therefore attack, make org attack target
+            game.attack(act.get_org(), act.get_target())
+
 
 def do_turn(game):
     """
@@ -162,87 +256,16 @@ def do_turn(game):
     """
     me_id = game.get_myself().id
     enemy_id = game.get_enemy().id
-    global me_id # ID of my player
-    global enemy_id #ID of enemy player
+    drone_wait_dist = game.get_my_cities()[0].distance(game.get_enemy_cities()[0]) / 2
+    global me_id  # ID of my player
+    global enemy_id  # ID of enemy player
+    global drone_wait_dist
     scores = []
     actions = []
-    for dummy_i in range(N):
-        cp = copy.deepcopy(game)
-        ret = run_trial(cp)
-        scores.append(ret[0])
-        actions.append(ret[1])
-    best = choose_best_acts(scores,actions)
-    execute_turn(best,game)
-
-"""    # Give orders to my pirates
-    handle_pirates(game)
-    # Give orders to my drones
-    handle_drones(game)
-
-def handle_pirates(game):
-    """"""
-    Gives orders to my pirates
-
-    :param game: the current game state
-    :type game: PiratesGame
-""""""
-    N = 10 #number of simulations
-    scores = []
-    turns = []
-    for dummy_i in range(N):
-        turn = []
-        for pirate in game.get_my_living_pirates():
-            r = random.random()
-            attacked = False
-            if r < 0.5:  # 50% chance to attack
-                can_be_attacked = []
-                for enemy in game.get_enemy_living_aircrafts():
-                    if pirate.in_attack_range(enemy):
-                        can_be_attacked.append(enemy)
-                if len(can_be_attacked) > 0:
-                    turn.append(Action("ATTACK",pirate,random.choice(can_be_attacked)))
-                    attacked = True
-            elif r > 0.5 or not attacked :  # 50% chance to make a move
-                islands = game.get_all_islands()
-                rand_island = random.choice(islands)
-                sails_ops = game.get_sail_options(pirate,rand_island)
-                if len(sails_ops) > 0:
-                    turn.append(Action("MOVE",pirate,random.choice(sails_ops)))
-        scores.append(score_game(turn,game))
-        turns.append(turn)
-    best = turns[scores.index(max(scores))]
-    for act in best:
-        if act.get_type() == 'MOVE':
-            game.set_sail(act.get_org(),act.get_target())
-        elif act.get_type() == 'ATTACK':
-            game.attack(act.get_org(),act.get_target())
-
-
-def score_game(turn,g):
-    game = copy.deepcopy(g)
-    for act in turn:
-        if act.get_type() == 'MOVE':
-            game.set_sail(act.get_org(),act.get_target())
-        elif act.get_type() == 'ATTACK':
-            game.attack(act.get_org(),act.get_target())
-    score = 0
-    # pirate health - more is good
-    score += sum([pirate.current_health for pirate in game.get_my_living_pirates()])
-    # enemy health - more is bad
-    score -= sum([enemy.current_health for enemy in game.get_enemy_living_aircrafts()])
-    # islands I control - good
-    score += len(game.get_my_islands())
-    # island enemy control - bad
-    score -= len(game.get_not_my_islands())
-    # my living pirates - good
-    score += len(game.get_my_living_pirates())
-    # enemy living pirates - bad
-    score -= len(game.get_enemy_living_pirates())
-    # enemy living drones - very bad
-    score -= 5*len(game.get_enemy_living_drones())
-    return score
-
-
-def handle_drones(game):
-    pass
-"""
+    for dummy_i in range(N):  # do this N times
+        cp = copy.deepcopy(game)  # copy game
+        ret = run_trial(cp)  # run a trial
+        scores.append(ret[0])  # add the score to scores
+        actions.append(ret[1])  # add the actions to actions
+    best = choose_best_acts(scores, actions)  # choose the best score
+    execute_turn(best, game)  # do the actions
