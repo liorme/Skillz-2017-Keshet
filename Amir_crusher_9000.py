@@ -85,8 +85,51 @@ def play_rand_turn(game):
         game.set_sail(drone,loc)
     return turn
 
+
+
 def score_game(game):
-    return 0
+    """
+    Return the scoring for the game board given.
+
+    Score includes:
+    - dif between my score and enemy score (between -19 to 19)
+    - 0.5 * (dif between my total HP and enemy total HP)
+    - 2 * (dif between my islands and enemy islands) (between -2*num_of_cities to 2*num_of_cities)
+    - 0.5 * (dif between my num of drones and enemy num of drones)
+    - k * average distance between my drone and my city
+    - (-k) * average distance between enemy drone and enemy city
+
+    :param game
+    :type PirateGame
+    :return: score of gameboard
+    :type: float
+    """
+
+    score = 0
+    score += game.get_my_score() - game.get_enemy_score()
+
+    # Score takes into consideration the HP difference
+    my_total_hp = sum([pirate.current_health for pirate in game.get_my_living_pirates()])
+    enemy_total_hp = sum([pirate.current_health for pirate in game.get_enemy_living_pirates()])
+    score += 0.5 * (my_total_hp - enemy_total_hp)
+
+    # Score takes into consideration the dif between num of islands
+    score += 2 * (len(game.get_my_islands()) - len(game.get_enemy_islands()))
+
+    #Score takes into cosideration the dif between num of drones:
+    score += 0.5 * (len(game.get_my_living_drones()) - len(game.get_enemy_living_drones()))
+
+    # Score takes into cosideration the average distance between my drone and my city
+    if len(game.get_my_living_drones()) > 0:
+        my_drone_to_city_distances = [drone.distance(game.get_my_cities()[0]) for drone in game.get_my_living_drones()]
+        score += 0.1 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
+    if len(game.get_enemy_living_drones()) > 0:
+        enemy_drone_to_city_distances = [drone.distance(game.get_enemy_cities()[0]) for drone in game.get_enemy_living_drones()]
+        score -= 0.1 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
+
+    return score
+
+
 
 def run_trial(game):
     set = False
