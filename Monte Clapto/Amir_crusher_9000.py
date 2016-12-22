@@ -43,9 +43,15 @@ class Action:
         :rtype Pirate
         """
         return self._org
+    def print_action(self):
+        """
+        Return str of what an action contains. For debugging
+        :return:  str containing all values of action
+        """
+        return str(self._type)+' '+str(self._org)+' '+str(self._target)
 
 # Constants and global variables
-N = 100  # number of trials
+N = 40  # number of trials
 turns = 4  # number of turns per trial
 # calculate the distance between my city an enemy city
 # set half of that distance to be the distance drones should "wait" around the city
@@ -66,16 +72,15 @@ def switch_player(game):
         me.id = me_id  # make me myself
 
 
-def handle_pirates(game, turn_acts, save_acts):
+def handle_pirates(game, save_acts, org_game):
     """
     give command to pirates this random turn
     :param game: the game to play on
     :type game: PiratesGame
-    :param turn_acts: list to save actions
-    :type turn_acts: list[Action]
     :param save_acts: flag that tells if we should save the acts we preform (so we can do them in the real game)
     :type save_acts: boolean
     """
+    actions = []
     for pirate in game.get_my_living_pirates():  # give command to each pirate
         r = random.random()  # pick a random number, r in range [0,1)
         attacked = False  # flag to check if pirate attacked or not
@@ -89,8 +94,8 @@ def handle_pirates(game, turn_acts, save_acts):
                 game.attack(pirate, rnd_target)  # attack the chosen enemy
                 attacked = True  # set flag to true - we just attacked
                 if save_acts:
-                    turn_acts.append(Action("ATTACK", pirate, rnd_target))
-        elif r > 0.5 or (not attacked):  # 50% chance to move
+                    actions.append(Action("ATTACK", pirate, rnd_target))
+        if r > 0.5 or (not attacked):  # 50% chance to move
             islands = game.get_all_islands()
             dest = random.choice(islands)  # pick a random island as destination
             sails_ops = game.get_sail_options(pirate, dest)  # find all ways to sail to the island
@@ -100,22 +105,22 @@ def handle_pirates(game, turn_acts, save_acts):
             way = random.choice(sails_ops)  # choose a random way to reach the destination
             game.set_sail(pirate, way)  # sail to the chosen island in the chosen way
             if save_acts:
-                turn_acts.append(Action("MOVE", pirate, dest))
+                actions.append(Action("MOVE", pirate, way))
+    return actions
 
 
-def handle_drones(game, turn_acts, save_acts):
+def handle_drones(game, save_acts, org_game):
     """
     give command to drones this random turn
     :param game: the game to play on
     :type game: PiratesGame
-    :param turn_acts: list to save actions
-    :type turn_acts: list[Action]
     :param save_acts: flag that tells if we should save the acts we preform (so we can do them in the real game)
     :type save_acts: boolean
     """
     num_waiting = 0  # count how many drones ware "waiting" to be satcked
     waiting = []  # save all waiting drones
     not_waiting = []  # save all not-waiting drones
+    actions = []
     for drone in game.get_my_living_drones():  # count how many drones are waiting and sort them by type
         if drone.distance(game.get_my_cities()[0]) == drone_wait_dist:
             num_waiting += 1
@@ -126,19 +131,20 @@ def handle_drones(game, turn_acts, save_acts):
         for drone in waiting:  # sail them all to my city
             game.set_sail(drone, game.get_my_cities()[0])
             if save_acts:
-                turn_acts.append(Action("MOVE", drone, game.get_my_cities()[0]))
+                actions.append(Action("MOVE", drone, game.get_my_cities()[0]))
     for drone in not_waiting:  # sail all not-waiting drones to the city range
         angle = random.randrange(0, 359)  # choose a random degrees in the "circle" around the city
-        loc = Location(drone_wait_dist * math.sin(angle),
-                       drone_wait_dist * math.cos(angle))  # add a the chosen location
+        loc = Location(int(drone_wait_dist * math.sin(angle)),
+                       int(drone_wait_dist * math.cos(angle)))  # add a the chosen location
         ops = game.get_sail_options(drone, loc)
         way = random.choice(ops)
         game.set_sail(drone, way)
         if save_acts:
-            turn_acts.append(Action("MOVE", drone, way))
+            actions.append(Action("MOVE", drone, way))
+    return actions
 
 
-def play_rand_turn(game, save_acts):
+def play_rand_turn(game, save_acts, org_game):
     """
     plays one random turn
     :param game: the game to play on
@@ -147,8 +153,8 @@ def play_rand_turn(game, save_acts):
     :type save_acts: boolean
     """
     turn_acts = []  # save the actions we intend to preform
-    handle_pirates(game, turn_acts, save_acts)  # handle pirate commands
-    handle_drones(game, turn_acts, save_acts)  # handle drone commands
+    turn_acts.extend(handle_pirates(game, save_acts, org_game))  # handle pirate commands
+    turn_acts.extend(handle_drones(game, save_acts, org_game))  # handle drone commands
     return turn_acts
 
 
@@ -196,21 +202,21 @@ def score_game(game):
     return score
 
 
-def run_trial(game):
+def run_trial(game, org_game):
     """
     run a trial of 6 turns of the game
+    :type game: object
     :param game: the game to play on
-    :type game: PiratesGame
     :return: a list with 2 parts, the first is the score of the trial, the second is the list of actions to preform
-    :rtype list[int,list[Action]]
+    :type: list[int,list[Action]]
     """
     # do the first turn and save the actions
-    my_action = play_rand_turn(game, True)  # play a turn, save actions
+    my_action = play_rand_turn(game, True, org_game)  # play a turn, save actions
     switch_player(game)  # switch player
     # we need to do "turns" number of turns, so twice the number of plays (each turn is one me play one enemy play)
     # we did above the first turn, so we need 2*(turns-1) plays + 1 play to finish turn 1, so 2*turns-1 play
     for dummy_i in range(2*turns-1):
-        play_rand_turn(game, False)  # play a turn, don't save actions
+        play_rand_turn(game, False, org_game)  # play a turn, don't save actions
         switch_player(game)  # switch player
     score = score_game(game)  # calculate score
     return [score, my_action]
@@ -264,7 +270,7 @@ def do_turn(game):
     actions = []
     for dummy_i in range(N):  # do this N times
         cp = copy.deepcopy(game)  # copy game
-        ret = run_trial(cp)  # run a trial
+        ret = run_trial(cp, game)  # run a trial
         scores.append(ret[0])  # add the score to scores
         actions.append(ret[1])  # add the actions to actions
     best = choose_best_acts(scores, actions)  # choose the best score
