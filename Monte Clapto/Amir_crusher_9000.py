@@ -8,6 +8,7 @@ import random
 import copy
 import math
 
+
 # Class Definitions
 
 
@@ -15,6 +16,7 @@ class Action:
     """
     A class that defines an action that the bot should preform
     """
+
     def __init__(self, type, org, target):
         self._type = type  # type of the action
         self._org = org  # origination of the action - who does it
@@ -43,18 +45,21 @@ class Action:
         :rtype Pirate
         """
         return self._org
+
     def print_action(self):
         """
         Return str of what an action contains. For debugging
         :return:  str containing all values of action
         """
-        return str(self._type)+' '+str(self._org)+' '+str(self._target)
+        return str(self._type) + ' ' + str(self._org) + ' ' + str(self._target)
+
 
 # Constants and global variables
 N = 50  # number of trials
 turns = 4  # number of turns per trial
-rows=44 #num of rows in board. starts at default value
-cols=46 #num of cols in board. starts at default value
+rows = 44  # num of rows in board. starts at default value
+cols = 46  # num of cols in board. starts at default value
+
 
 # Function Definitions
 
@@ -66,10 +71,10 @@ def moving_possibilities(row, col, max_distance):
     :param max_distance: maximum distance the aircraft can do in one turn
     :return: list of all possible moves (without invalids)
     """
-    poss = [(row-1,col),(row+1,col),(row,col-1),(row,col+1),(row,col)] #within distance of 1
+    poss = [(row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1), (row, col)]  # within distance of 1
     if max_distance == 2:
-        poss.append([(row-2,col),(row+2,col),(row,col+2),(row,col-2)]) # within straight distance of 2
-        poss.append([(row-1,col-1),(row+1,col-1),(row-1,col+1),(row-1,col-1)])
+        poss.extend([(row - 2, col), (row + 2, col), (row, col + 2), (row, col - 2)])  # within straight distance of 2
+        poss.extend([(row - 1, col - 1), (row + 1, col - 1), (row - 1, col + 1), (row - 1, col - 1)])
 
     for loc in poss[:]:
         if loc[0] < 0 or loc[0] >= rows:
@@ -78,6 +83,7 @@ def moving_possibilities(row, col, max_distance):
         if loc[1] < 0 or loc[1] >= cols:
             poss.remove(loc)
     return poss
+
 
 def switch_player(game):
     """
@@ -117,8 +123,10 @@ def handle_pirates(game, save_acts, org_game):
         if r > 0.5 or (not attacked):  # 50% chance to move
             poss_moves = moving_possibilities(pirate.location.row, pirate.location.col, 2)
             move = random.choice(poss_moves)
-            actions.append(Action("MOVE", pirate, Location(move[0],move[1])))
-			game.set_sail(pirate,move)
+            move_loc = Location(move[0], move[1])
+            game.set_sail(pirate, move_loc)
+            if save_acts:
+                actions.append(Action("MOVE", pirate, move_loc))
     return actions
 
 
@@ -130,12 +138,15 @@ def handle_drones(game, save_acts, org_game):
     :param save_acts: flag that tells if we should save the acts we preform (so we can do them in the real game)
     :type save_acts: boolean
     """
-	actions = []
-    for drone in drones:
+    actions = []
+
+    for drone in game.get_my_living_drones():
         poss_moves = moving_possibilities(drone.location.row, drone.location.col, 1)
-		move = random.choice(poss_moves)
-        actions.append(Action("MOVE", drone, Location(move[0],move[1])))
-		game.set_sail(drone,move)
+        move = random.choice(poss_moves)
+        move_loc = Location(move[0],move[1])
+        if save_acts:
+            actions.append(Action("MOVE", drone, move_loc))
+        game.set_sail(drone, move_loc)
     return actions
 
 
@@ -190,13 +201,13 @@ def score_game(game):
         my_drone_to_city_distances = [drone.distance(game.get_my_cities()[0]) for drone in game.get_my_living_drones()]
         score += 0.1 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
     if len(game.get_enemy_living_drones()) > 0:
-        enemy_drone_to_city_distances =\
+        enemy_drone_to_city_distances = \
             [drone.distance(game.get_enemy_cities()[0]) for drone in game.get_enemy_living_drones()]
         score -= 0.1 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
 
-    #Score takes into cosideration the average distance between my pirate and center of board (for beginning of game)
+    # Score takes into cosideration the average distance between my pirate and center of board (for beginning of game)
     if len(game.get_my_living_pirates()) > 0:
-        my_pirate_to_center_distances = [pirate.distance(Location(25,23)) for pirate in game.get_my_living_pirates()]
+        my_pirate_to_center_distances = [pirate.distance(Location(25, 23)) for pirate in game.get_my_living_pirates()]
         score += 0.1 * (sum(my_pirate_to_center_distances) / float(len(my_pirate_to_center_distances)))
     return score
 
@@ -210,16 +221,17 @@ def run_trial(game, org_game):
     :type: list[int,list[Action]]
     """
     # do the first turn and save the actions
-    my_action = play_rand_turn(game, True, org_game)  # play a turn, save actions
-    # switch_player(game)  # switch player
-    # # we need to do "turns" number of turns, so twice the number of plays (each turn is one me play one enemy play)
-    # # we did above the first turn, so we need 2*(turns-1) plays + 1 play to finish turn 1, so 2*turns-1 play
-    # for dummy_i in range(2*turns-1):
-    #     play_rand_turn(game, False, org_game)  # play a turn, don't save actions
-    #     switch_player(game)  # switch player
+    my_actions = play_rand_turn(game, True, org_game)  # play a turn, save actions
+    switch_player(game)  # switch player
+    # we need to do "turns" number of turns, so twice the number of plays (each turn is one me play one enemy play)
+    # we did above the first turn, so we need 2*(turns-1) plays + 1 play to finish turn 1, so 2*turns-1 play
+    for dummy_i in range(2 * turns - 1):
+        play_rand_turn(game, False, org_game)  # play a turn, don't save actions
+        switch_player(game)  # switch player
+    game._finish_turn()
     score = score_game(game)  # calculate score
-    #org_game.debug(score)
-    return [score, my_action]
+    org_game.debug(score, [act.get_target() for act in my_actions],game.get_my_living_pirates()[0])
+    return [score, my_actions]
 
 
 def choose_best_acts(scores, actions):
@@ -279,6 +291,5 @@ def do_turn(game):
         scores.append(ret[0])  # add the score to scores
         actions.append(ret[1])  # add the actions to actions
     best = choose_best_acts(scores, actions)  # choose the best score
-    #game.debug([act.print_action() for act in best])
+    # game.debug([act.print_action() for act in best])
     execute_turn(best, game)  # do the actions
-
