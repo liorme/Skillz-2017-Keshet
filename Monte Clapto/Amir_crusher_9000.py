@@ -55,9 +55,6 @@ N = 50  # number of trials
 turns = 4  # number of turns per trial
 rows=44 #num of rows in board. starts at default value
 cols=46 #num of cols in board. starts at default value
-# calculate the distance between my city an enemy city
-# set half of that distance to be the distance drones should "wait" around the city
-min_drone_stack = 12  # number of drones to stack until mass attack
 
 # Function Definitions
 
@@ -121,6 +118,7 @@ def handle_pirates(game, save_acts, org_game):
             poss_moves = moving_possibilities(pirate.location.row, pirate.location.col, 2)
             move = random.choice(poss_moves)
             actions.append(Action("MOVE", pirate, Location(move[0],move[1])))
+			game.set_sail(pirate,move)
     return actions
 
 
@@ -132,30 +130,12 @@ def handle_drones(game, save_acts, org_game):
     :param save_acts: flag that tells if we should save the acts we preform (so we can do them in the real game)
     :type save_acts: boolean
     """
-    num_waiting = 0  # count how many drones ware "waiting" to be satcked
-    waiting = []  # save all waiting drones
-    not_waiting = []  # save all not-waiting drones
-    actions = []
-    for drone in game.get_my_living_drones():  # count how many drones are waiting and sort them by type
-        if drone.distance(game.get_my_cities()[0]) == drone_wait_dist:
-            num_waiting += 1
-            waiting.append(drone)
-        else:
-            not_waiting.append(drone)
-    if num_waiting > min_drone_stack:  # if we have enough drones waiting
-        for drone in waiting:  # sail them all to my city
-            game.set_sail(drone, game.get_my_cities()[0])
-            if save_acts:
-                actions.append(Action("MOVE", drone, game.get_my_cities()[0]))
-    for drone in not_waiting:  # sail all not-waiting drones to the city range
-        angle = random.randrange(0, 359)  # choose a random degrees in the "circle" around the city
-        loc = Location(int(drone_wait_dist * math.sin(angle)),
-                       int(drone_wait_dist * math.cos(angle)))  # add a the chosen location
-        ops = game.get_sail_options(drone, loc)
-        way = random.choice(ops)
-        game.set_sail(drone, way)
-        if save_acts:
-            actions.append(Action("MOVE", drone, way))
+	actions = []
+    for drone in drones:
+        poss_moves = moving_possibilities(drone.location.row, drone.location.col, 1)
+		move = random.choice(poss_moves)
+        actions.append(Action("MOVE", drone, Location(move[0],move[1])))
+		game.set_sail(drone,move)
     return actions
 
 
