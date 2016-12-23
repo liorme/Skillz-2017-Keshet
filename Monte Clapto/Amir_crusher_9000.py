@@ -1,5 +1,5 @@
 """
-This is an example for a bot.
+Bot using Monte-Carlo simulations
 """
 
 # Imports
@@ -287,7 +287,7 @@ def do_turn(game):
     actions = []
     for dummy_i in range(N):  # do this N times
         cp = copy.deepcopy(game)  # copy game
-        cp._PirateGame__out_stream = None # change output stream to none so it doesn't interfere with game's one. This is temporary, I think we should make our own output stream in order for it to work
+        cp._PirateGame__out_stream = None # change output stream to none so it doesn't interfere with game's one.
         ret = run_trial(cp, game)  # run a trial
         scores.append(ret[0])  # add the score to scores
         actions.append(ret[1])  # add the actions to actions
