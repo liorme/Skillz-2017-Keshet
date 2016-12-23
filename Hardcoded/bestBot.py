@@ -5,22 +5,22 @@ import random
 REMEMBER: Change back one STACK to CONTROL
 """
 class Battle:
-    def __init__(self, pirates, enemy_pirates, location):
-        self._pirates = pirates
+    def __init__(self, my_pirates, enemy_pirates, location_pirate):
+        self._my_pirates = my_pirates
         self._enemy_pirates = enemy_pirates
-        self._location = location
+        self._location_pirate = location_pirate
 
-    def get_pirates(self):
-        return self._pirates
+    def get_my_pirates(self):
+        return self._my_pirates
     def get_enemy_pirates(self):
         return self._enemy_pirates
-    def get_location(self):
-        return self._location
+    def get_location_pirate(self):
+        return self._location_pirate
 
-    def update(self, pirates, enemy_pirates, location):
-        self._pirates = pirates
+    def update(self, my_pirates, enemy_pirates, location_pirate):
+        self._my_pirates = my_pirates
         self._enemy_pirates = enemy_pirates
-        self._location = location
+        self._location_pirate = location_pirate
 
 
 battles = []
@@ -40,13 +40,18 @@ def do_turn(game):
     game.debug(game_state)
     
     update_battles()
-    handle_pirates(game, game_state)
+    handle_pirates(game, game_state, battles)
     handle_drones(game, game_state)
 
+    for battle in battles:
+        game.debug("~~~~~~~~~~~~~")
+        game.debug(battle._my_pirates)
+        game.debug(battle._enemy_pirates)
+        game.debug(battle._location_pirate)
     game.debug(game.get_time_remaining())
 
 
-def handle_pirates(game, game_state):
+def handle_pirates(game, game_state, battles):
     #Get information
     all_islands = game.get_all_islands()
     my_islands = game.get_my_islands()
@@ -64,13 +69,14 @@ def handle_pirates(game, game_state):
     #Try attacking, and updating battles
     for pirate in pirates[:]:
         attack = try_attack(pirate, enemy_health, game)
-        if attack == True:
-            pirates.remove(pirate)
-        elif False:
-            if new_battle(attack):
-                pass
+        if len(attack) == 1:
+            pirates.remove(attack[0])
+        elif len(attack) == 2:
+            if is_new_battle(attack, battles):
+                battles.append(create_new_battle(attack, battles, game))
             else:
-                add_to_battle(attack)
+                add_to_battle()
+            pirates.remove(attack[0])
 
     
     #If early in the game rush bottom middle island with 4 pirates and upper right/left island with 1 pirate
@@ -273,13 +279,13 @@ def try_attack(pirate, enemy_health, game):
                 best_target = enemy_pirate
         enemy_health[best_target] -= 1
         game.attack(pirate, best_target)
-        return True
+        return [pirate, best_target]
             
     for enemy_drone in game.get_enemy_living_drones():
         if pirate.in_attack_range(enemy_drone):
             game.attack(pirate, enemy_drone)
-            return True
-    return False
+            return [pirate]
+    return []
 
 
 def best_move(aircrafts, locations):
@@ -320,18 +326,26 @@ def optimize_drone_moves(drone, sail_options, destination, game):
         return sail_options[random.randint(0, 1)]
 
 
-def is_new_battle(attack):
+def is_new_battle(attack, battles):
     for battle in battles:
-        if battle.location == attack[1].location:
+        if battle._location_pirate.location == attack[1].location:
             return False
-        else:
-            new_battle = create_new_battle(attack)
-            battles.append(new_battle)
-            return True
+    return True
 
-def create_new_battle():
-    pass
+def create_new_battle(attack, battles, game):
+    battle = Battle([], [], attack[1])
+    all_pirates = game.get_my_living_pirates() + game.get_enemy_living_pirates()
+    for pirate in all_pirates:
+        if attack[1].in_attack_range(pirate):
+            if pirate.owner.id == game.get_myself().id:
+                battle._my_pirates.append(pirate)
+            else:
+                battle._enemy_pirates.append(pirate)
+    return battle
+
 def update_battles():
     pass
 def add_to_battle():
+    pass
+def turns_remaining_to_battle(battle):
     pass
