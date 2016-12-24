@@ -1,6 +1,7 @@
 import sys
 from Pirates import *
 import random
+import math
 """
 REMEMBER: Change back one STACK to CONTROL
 """
@@ -9,6 +10,8 @@ class Battle:
         self._my_pirates = my_pirates
         self._enemy_pirates = enemy_pirates
         self._location_pirate = location_pirate
+        self._turns_remaining = 0
+        self._win = False
 
     def get_my_pirates(self):
         return self._my_pirates
@@ -39,7 +42,7 @@ def do_turn(game):
         game_state = "STACK"
     game.debug(game_state)
     
-    update_battles()
+    update_battles(game)
     handle_pirates(game, game_state, battles)
     handle_drones(game, game_state)
 
@@ -48,6 +51,8 @@ def do_turn(game):
         game.debug(battle._my_pirates)
         game.debug(battle._enemy_pirates)
         game.debug(battle._location_pirate)
+        game.debug(battle._win)
+        game.debug(battle._turns_remaining)
     game.debug(game.get_time_remaining())
 
 
@@ -72,10 +77,8 @@ def handle_pirates(game, game_state, battles):
         if len(attack) == 1:
             pirates.remove(attack[0])
         elif len(attack) == 2:
-            if is_new_battle(attack, battles):
-                battles.append(create_new_battle(attack, battles, game))
-            else:
-                add_to_battle()
+            if is_new_battle(attack):
+                create_new_battle(attack, game)
             pirates.remove(attack[0])
 
     
@@ -326,13 +329,13 @@ def optimize_drone_moves(drone, sail_options, destination, game):
         return sail_options[random.randint(0, 1)]
 
 
-def is_new_battle(attack, battles):
+def is_new_battle(attack):
     for battle in battles:
         if battle._location_pirate.location == attack[1].location:
             return False
     return True
 
-def create_new_battle(attack, battles, game):
+def create_new_battle(attack, game):
     battle = Battle([], [], attack[1])
     all_pirates = game.get_my_living_pirates() + game.get_enemy_living_pirates()
     for pirate in all_pirates:
@@ -341,11 +344,53 @@ def create_new_battle(attack, battles, game):
                 battle._my_pirates.append(pirate)
             else:
                 battle._enemy_pirates.append(pirate)
+    battle = turns_remaining_to_battle(battle)
+    battles.append(battle)
+
+def update_battles(game):
+    all_pirates = game.get_my_living_pirates() + game.get_enemy_living_pirates()
+    for battle in battles:
+        #update_location_pirate(battle, all_pirates, game)
+        if battle.get_location_pirate() in all_pirates:
+            battle._my_pirates = []
+            battle._enemy_pirates = []
+            for pirate in all_pirates:
+                if battle.get_location_pirate().in_attack_range(pirate):
+                    if pirate.owner.id == game.get_myself().id:
+                        battle._my_pirates.append(pirate)
+                    else:
+                        battle._enemy_pirates.append(pirate)
+            if not (len(battle.get_my_pirates()) > 0 and len(battle.get_enemy_pirates()) > 0):
+                battles.remove(battle)
+            else:
+                turns_remaining_to_battle(battle)
+        else:
+            battles.remove(battle)
+    
+
+
+def turns_remaining_to_battle(battle):
+    #for battle in battles:
+    enemy_hp = 0
+    my_hp = 0
+    turns_remaning = 0
+    for enemy in battle.get_enemy_pirates():
+        enemy_hp += enemy.current_health
+    for friendly in battle.get_my_pirates():
+        my_hp += friendly.current_health
+    my_turns_remaining = math.ceil(my_hp/float(len(battle.get_enemy_pirates())))
+    enemy_turns_remaining = math.ceil(enemy_hp/float(len(battle.get_my_pirates())))
+    if my_turns_remaining < enemy_turns_remaining:
+        battle._win = False
+        battle._turns_remaining = my_turns_remaining
+    elif my_turns_remaining > enemy_turns_remaining:
+        battle._win = True
+        battle._turns_remaining = enemy_turns_remaining
+    else:
+        battle._win = False
+        battle._turns_remaining = my_turns_remaining
     return battle
 
-def update_battles():
-    pass
-def add_to_battle():
-    pass
-def turns_remaining_to_battle(battle):
+
+def update_location_pirate(battle, all_pirates, game):
     pass
