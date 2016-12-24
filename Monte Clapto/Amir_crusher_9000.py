@@ -55,17 +55,17 @@ class Action:
 
 
 # Constants and global variables
-N = 50  # number of trials
-turns = 4  # number of turns per trial
+N = 40  # number of trials
+turns = 3  # number of turns per trial
 rows = 44  # num of rows in board. starts at default value
 cols = 46  # num of cols in board. starts at default value
+min_drone_wait_num = 15 # if we have more drones than this, send them all immediately to city
 
 
 # Function Definitions
 
 def moving_possibilities(row, col, max_distance):
     """
-
     :param row: row of aircraft location
     :param col: col of aircraft location
     :param max_distance: maximum distance the aircraft can do in one turn
@@ -139,11 +139,13 @@ def handle_drones(game, save_acts, org_game):
     :type save_acts: boolean
     """
     actions = []
-
+    num_of_drones = len(game.get_my_living_drones())
     for drone in game.get_my_living_drones():
         poss_moves = moving_possibilities(drone.location.row, drone.location.col, 1)
         move = random.choice(poss_moves)
         move_loc = Location(move[0],move[1])
+        if num_of_drones > min_drone_wait_num:
+            move_loc = random.choice(game.get_sail_options(drone, game.get_my_cities()[0]))
         if save_acts:
             actions.append(Action("MOVE", drone, move_loc))
         game.set_sail(drone, move_loc)
@@ -167,15 +169,13 @@ def play_rand_turn(game, save_acts, org_game):
 def score_game(game):
     """
     Return the scoring for the game board given.
-
     Score includes:
-    - dif between my score and enemy score (between -19 to 19)
+    - 100 * dif between my score and enemy score (between -1900 to 1900)
     - 0.5 * (dif between my total HP and enemy total HP)
     - 2 * (dif between my islands and enemy islands) (between -2*num_of_cities to 2*num_of_cities)
-    - 0.5 * (dif between my num of drones and enemy num of drones)
+    - 2 * (dif between my num of drones and enemy num of drones)
     - k * average distance between my drone and my city
     - (-k) * average distance between enemy drone and enemy city
-
     :param game
     :type game: PirateGame
     :return: score of game board
@@ -183,32 +183,32 @@ def score_game(game):
     """
 
     score = 0
-    score += game.get_my_score() - game.get_enemy_score()
+    score += 100*(game.get_my_score() - game.get_enemy_score())
 
     # Score takes into consideration the HP difference
     my_total_hp = sum([pirate.current_health for pirate in game.get_my_living_pirates()])
     enemy_total_hp = sum([pirate.current_health for pirate in game.get_enemy_living_pirates()])
-    score += 0.5 * (my_total_hp - enemy_total_hp)
+    score += 0.8 * (my_total_hp - enemy_total_hp)
 
     # Score takes into consideration the dif between num of islands
-    score += 2 * (len(game.get_my_islands()) - len(game.get_enemy_islands()))
+    score += 3 * (len(game.get_my_islands()) - len(game.get_enemy_islands()))
 
     # Score takes into cosideration the dif between num of drones:
-    score += 0.5 * (len(game.get_my_living_drones()) - len(game.get_enemy_living_drones()))
+    score += 2 * (len(game.get_my_living_drones()) - len(game.get_enemy_living_drones()))
 
     # Score takes into consideration the average distance between my drone and my city
     if len(game.get_my_living_drones()) > 0:
         my_drone_to_city_distances = [drone.distance(game.get_my_cities()[0]) for drone in game.get_my_living_drones()]
-        score += 0.1 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
+        score += 0.8 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
     if len(game.get_enemy_living_drones()) > 0:
         enemy_drone_to_city_distances = \
             [drone.distance(game.get_enemy_cities()[0]) for drone in game.get_enemy_living_drones()]
-        score -= 0.1 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
+        score -= 1.6 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
 
-    # Score takes into cosideration the average distance between my pirate and center of board (for beginning of game)
+    # Score takes into consideration the average distance between my pirate and center of board (for beginning of game)
     if len(game.get_my_living_pirates()) > 0:
         my_pirate_to_center_distances = [pirate.distance(Location(25, 23)) for pirate in game.get_my_living_pirates()]
-        score += 0.1 * (sum(my_pirate_to_center_distances) / float(len(my_pirate_to_center_distances)))
+        score += 0.8 * (sum(my_pirate_to_center_distances) / float(len(my_pirate_to_center_distances)))
     return score
 
 
