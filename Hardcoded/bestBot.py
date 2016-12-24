@@ -56,6 +56,8 @@ def do_turn(game):
     game.debug("Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
 
 
+
+
 def handle_pirates(game, game_state, battles):
     #Get information
     all_islands = game.get_all_islands()
@@ -73,13 +75,15 @@ def handle_pirates(game, game_state, battles):
 
     #Try attacking, and updating battles
     for pirate in pirates[:]:
-        attack = try_attack(pirate, enemy_health, game)
-        if len(attack) == 1:
-            pirates.remove(attack[0])
-        elif len(attack) == 2:
-            if is_new_battle(attack):
-                create_new_battle(attack, game)
-            pirates.remove(attack[0])
+        attack = try_attack(pirate, enemy_health, enemy_drones, game)
+        if len(attack) > 1:
+            if not attack[2]:
+                pirates.remove(attack[0])
+                enemy_drones.remove(attack[1])
+            elif attack[2]:
+                if is_new_battle(attack):
+                    create_new_battle(attack, game)
+                pirates.remove(attack[0])
 
     #Try helping battles
     for battle in battles:
@@ -199,7 +203,7 @@ def handle_pirates(game, game_state, battles):
                 #If controlling islands then send the pirate that is closest to one of
                 #the islands towards an enemy pirate that is also closest to the island
                 #Only calculates once and passes over all pirates
-                if len(my_islands) > 0 and attack_pirates_relative_to_islands == 0:
+                if len(my_islands) > 0 and attack_pirates_relative_to_islands == 0 and False:
                     for pirate in pirates:
                         closest_island = best_move([pirate], my_islands)
                         closest_enemy = best_move(game.get_enemy_living_pirates(), [closest_island[1]])
@@ -289,7 +293,7 @@ def handle_drones(game, game_state):
             game.set_sail(drone, sail)
 
 
-def try_attack(pirate, enemy_health, game):
+def try_attack(pirate, enemy_health, enemy_drones, game):
     #Find which pirates are in my range
     in_range_pirates = []
     for enemy_pirate in game.get_enemy_living_pirates():
@@ -305,12 +309,12 @@ def try_attack(pirate, enemy_health, game):
                 best_target = enemy_pirate
         enemy_health[best_target] -= 1
         game.attack(pirate, best_target)
-        return [pirate, best_target]
+        return [pirate, best_target, True]
             
-    for enemy_drone in game.get_enemy_living_drones():
+    for enemy_drone in enemy_drones:
         if pirate.in_attack_range(enemy_drone):
             game.attack(pirate, enemy_drone)
-            return [pirate]
+            return [pirate, enemy_drone, False]
     return []
 
 
@@ -358,6 +362,7 @@ def is_new_battle(attack):
             return False
     return True
 
+
 def create_new_battle(attack, game):
     battle = Battle([], [], attack[1])
     all_pirates = game.get_my_living_pirates() + game.get_enemy_living_pirates()
@@ -370,10 +375,10 @@ def create_new_battle(attack, game):
     battle = turns_remaining_to_battle(battle)
     battles.append(battle)
 
+
 def update_battles(game):
     all_pirates = game.get_my_living_pirates() + game.get_enemy_living_pirates()
     for battle in battles:
-        #update_location_pirate(battle, all_pirates, game)
         if battle.get_location_pirate() in all_pirates:
             battle._my_pirates = []
             battle._enemy_pirates = []
@@ -413,7 +418,3 @@ def turns_remaining_to_battle(battle):
         battle._win = False
         battle._turns_remaining = my_turns_remaining
     return battle
-
-
-def update_location_pirate(battle, all_pirates, game):
-    pass
