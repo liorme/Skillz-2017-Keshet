@@ -24,7 +24,6 @@ def do_turn(game):
         game_state = "STACK"
     else:
         game_state = "STACK"
-    game.debug(game_state)
 
     handle_pirates(game, game_state)
     handle_drones(game, game_state)
@@ -61,12 +60,11 @@ def handle_pirates(game, game_state):
             if i == 0:
                 for enemy in enemy_pirates:
                     if enemy.distance(ave_destination) < 10:
-                        e_list = []
-                        e_list.append(enemy)
-                        move = best_move(pirates, e_list)
+                        move = best_move(pirates, [enemy])
+                        game.debug(move[0],move[1])
                         sail_options = game.get_sail_options(move[0], move[1])
                         game.set_sail(move[0], sail_options[len(sail_options) / 2])
-                        pirates.remove(move[0])
+                        if len(pirates) != 1:pirates.remove(move[0])
                 i += 1
 
                 """
@@ -183,7 +181,6 @@ def handle_drones(game, game_state):
                 ave_destination.col = 0
             else:
                 ave_destination.col = 46
-        game.debug(ave_destination)
         for drone in game.get_my_living_drones():
             if drone.distance(game.get_my_cities()[0]) * 2 < drone.distance(ave_destination):
                 sail_options = game.get_sail_options(drone, game.get_my_cities()[0])
@@ -239,7 +236,6 @@ def best_move(aircrafts, locations):
     for move in moves:
         if move[2] < min_move[2]:
             min_move = move
-
     return min_move
 
 
