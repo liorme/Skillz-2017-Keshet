@@ -120,7 +120,7 @@ def handle_pirates(game, game_state):
 
             elif len(enemy_pirates) > 0:
                 for pirate in pirates:
-                    if my_islands > 0:
+                    if len(my_islands) > 0:
                         closest_island = best_move([pirate], my_islands)[1]
                         closest_enemy = best_move(game.get_enemy_living_pirates(), [closest_island])
                         sail_options = game.get_sail_options(pirate, closest_enemy[0])
