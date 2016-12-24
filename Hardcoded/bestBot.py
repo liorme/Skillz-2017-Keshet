@@ -96,6 +96,19 @@ def handle_pirates(game, game_state, battles):
     
     #If early in the game rush bottom middle island with 4 pirates and upper right/left island with 1 pirate
     if game_state == "EARLY":
+        move = best_move(pirates, [all_islands[1+game.get_myself().id]])
+        sail_options = game.get_sail_options(move[0], move[1])
+        game.set_sail(move[0], sail_options[len(sail_options)/2])
+        pirates.remove(move[0])
+        for pirate in pirates:
+            if len(game.get_aircrafts_on(pirate)) < 4:
+                sail_options = game.get_sail_options(pirate, game.get_my_pirate_by_id(1))
+                game.set_sail(pirate, sail_options[len(sail_options)/2])
+            else:
+                sail_options = game.get_sail_options(pirate, all_islands[3])
+                game.set_sail(pirate, sail_options[len(sail_options)/2])
+
+        """
         i = 0
         for pirate in pirates:
             if i == 0:
@@ -105,7 +118,7 @@ def handle_pirates(game, game_state, battles):
                 sail_options = game.get_sail_options(pirate, all_islands[3])
                 game.set_sail(pirate, sail_options[len(sail_options)/2])
             i += 1
-    
+        """
     #Try to get islands, kill drones, kill pirates, and gain map control in general
     elif game_state == "STACK" or game_state == "CONTROL":
         protect_drones = 0 
@@ -128,11 +141,16 @@ def handle_pirates(game, game_state, battles):
                 check_battles += 1
             """
 
-
             #Defend the point where the drones stack if an enemy is near it
-            if protect_drones == 0:
+            if protect_drones == 0 and len(game.get_my_living_drones()) > 0:
+                most_drones = 0
+                location = None
+                for drone in game.get_my_living_drones():
+                    if len(game.get_aircrafts_on(drone)) > most_drones:
+                        most_drones = len(game.get_aircrafts_on(drone))
+                        location = drone.location
                 for enemy in enemy_pirates:
-                    if enemy.distance(ave_destination) < 10:
+                    if enemy.distance(ave_destination) < 10 and len(pirates) > 0:
                         move = best_move(pirates, [enemy])
                         sail_options = game.get_sail_options(move[0], move[1])
                         game.set_sail(move[0], sail_options[len(sail_options)/2])
@@ -203,7 +221,7 @@ def handle_pirates(game, game_state, battles):
                 #If controlling islands then send the pirate that is closest to one of
                 #the islands towards an enemy pirate that is also closest to the island
                 #Only calculates once and passes over all pirates
-                if len(my_islands) > 0 and attack_pirates_relative_to_islands == 0 and False:
+                if len(my_islands) > 0 and attack_pirates_relative_to_islands == 0:
                     for pirate in pirates:
                         closest_island = best_move([pirate], my_islands)
                         closest_enemy = best_move(game.get_enemy_living_pirates(), [closest_island[1]])
