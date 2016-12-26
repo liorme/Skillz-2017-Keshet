@@ -1,5 +1,5 @@
 """
-This is an example for a bot.
+Bot using Monte-Carlo simulations
 """
 
 # Imports
@@ -8,13 +8,183 @@ import random
 import copy
 import math
 
+
 # Class Definitions
+#class constants
+PIRATE = 0
+DRONE = 1
+ISLAND = 2
+CITY = 3
+
+MY_TEAM = 0
+ENEMY_TEAM = 1
+NONE = 2 #for islands
+class Board:
+
+    def __init__(self, game):
+        self._object_list = []
+        self._player0_score = game.get_my_score()
+        self._player1_score = game.get_enemy_score()
+        for pirate in game.get_my_living_pirates():
+            self._object_list.append((PIRATE,pirate.get_location(), pirate.id, MY_TEAM))
+        for pirate in game.get_enemy_living_pirates():
+            self._object_list.append((PIRATE, pirate.get_location(), pirate.id, ENEMY_TEAM))
+        for drone in game.get_my_living_drones():
+            self._object_list.append((DRONE, drone.get_location(), drone.id, MY_TEAM))
+        for drone in game.get_enemy_living_drones():
+            self._object_list.append((DRONE, drone.get_location(), drone.id, ENEMY_TEAM))
+        for island in game.get_my_islands():
+            self._object_list.append((ISLAND, island.get_location(), island.id, MY_TEAM))
+        for island in game.get_my_islands():
+            self._object_list.append((ISLAND, island.get_location(), island.id, ENEMY_TEAM))
+        for city in game.get_my_cities():
+            self._object_list.append((CITY, city.get_location(), city.id, MY_TEAM))
+        for city in game.get_enemy_cities():
+            self._object_list.append((CITY, city.get_location(), city.id, ENEMY_TEAM))
+
+    def score_game(self, player):
+        """
+        Return the scoring for the game board given.
+        Score includes:
+        - 100 * dif between my score and enemy score (between -1900 to 1900)
+        - 0.5 * (dif between my total HP and enemy total HP)
+        - 2 * (dif between my islands and enemy islands) (between -2*num_of_cities to 2*num_of_cities)
+        - 2 * (dif between my num of drones and enemy num of drones)
+        - k * average distance between my drone and my city
+        - (-k) * average distance between enemy drone and enemy city
+        :return: score of game board
+        :type: float
+        """
+
+        score = 0
+        score += 100 * (self.get_my_score(player) - self.get_enemy_score(player))
+
+        # Score takes into consideration the HP difference
+        my_total_hp = sum([pirate.current_health for pirate in self.get_my_living_pirates(player)])
+        enemy_total_hp = sum([pirate.current_health for pirate in self.get_enemy_living_pirates(player)])
+        score += 0.8 * (my_total_hp - enemy_total_hp)
+
+        # Score takes into consideration the dif between num of islands
+        score += 3 * (len(self.get_my_islands(player)) - len(self.get_enemy_islands(player)))
+
+        # Score takes into cosideration the dif between num of drones:
+        score += 2 * (len(self.get_my_living_drones(player)) - len(self.get_enemy_living_drones(player)))
+
+        # Score takes into consideration the average distance between my drone and my city
+        if len(self.get_my_living_drones(player)) > 0:
+            my_drone_to_city_distances = [drone.distance(self.get_my_cities(player)[0]) for drone in
+                                          self.get_my_living_drones(player)]
+            score += -0.8 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
+        if len(self.get_enemy_living_drones(player)) > 0:
+            enemy_drone_to_city_distances = \
+                [drone.distance(self.get_enemy_cities(player)[0]) for drone in self.get_enemy_living_drones(player)]
+            score += 1.6 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
+
+        # Score takes into consideration the average distance between my pirate and any other game object
+        #  (not including my pirate and islands)
+        if len(self.get_my_living_pirates(player)) > 0:
+            distances = []
+            for obj in self.get_enemy_living_drones() + self.get_not_my_islands(player):
+                distances.extend([pirate.distance(obj) for pirate in self.get_my_living_pirates(player)])
+            score += -0.8 * (sum(distances) / float(len(distances)))
+        return score
+
+    def make_move(self, who, where):
+        """
+        Move in board. Assumes location is legal!
+        :param who:
+        :param where:
+        :return:
+        """
+
+
+    def make_attack(self,who,where):
+        """
+
+        :param who:
+        :param where:
+        :return:
+        """
+
+    def get_my_score(self, player):
+        """
+
+        :param player:
+        :return:
+        """
+        return 0
+
+
+    def get_enemy_score(self,player):
+        """
+
+        :param player:
+        :return:
+        """
+        return 0
+
+    def get_my_living_pirates(self,player):
+        """
+
+        :param player:
+        :return:
+        """
+        return []
+
+    def get_enemy_living_pirates(self,player):
+        """
+
+        :param player:
+        :return:
+        """
+        return []
+
+    def get_my_living_drones(self,player):
+        """
+
+        :param player:
+        :return:
+        """
+        return []
+
+    def get_enemy_living_drones(self, player):
+        """
+
+        :param player:
+        :return:
+        """
+        return []
+
+
+    def get_my_islands(self,player):
+        """
+
+        :param player:
+        :return:
+        """
+        return []
+
+    def get_enemy_islands(self,player):
+        """
+
+        :param player:
+        :return:
+        """
+        return []
+
+
+    def clone(self):
+        """
+
+        :return:
+        """
 
 
 class Action:
     """
     A class that defines an action that the bot should preform
     """
+
     def __init__(self, type, org, target):
         self._type = type  # type of the action
         self._org = org  # origination of the action - who does it
@@ -43,21 +213,44 @@ class Action:
         :rtype Pirate
         """
         return self._org
+
     def print_action(self):
         """
         Return str of what an action contains. For debugging
         :return:  str containing all values of action
         """
-        return str(self._type)+' '+str(self._org)+' '+str(self._target)
+        return str(self._type) + ' ' + str(self._org) + ' ' + str(self._target)
+
 
 # Constants and global variables
 N = 40  # number of trials
-turns = 4  # number of turns per trial
-# calculate the distance between my city an enemy city
-# set half of that distance to be the distance drones should "wait" around the city
-min_drone_stack = 12  # number of drones to stack until mass attack
+turns = 3  # number of turns per trial
+rows = 44  # num of rows in board. starts at default value
+cols = 46  # num of cols in board. starts at default value
+min_drone_wait_num = 15 # if we have more drones than this, send them all immediately to city
+
 
 # Function Definitions
+
+def moving_possibilities(row, col, max_distance):
+    """
+    :param row: row of aircraft location
+    :param col: col of aircraft location
+    :param max_distance: maximum distance the aircraft can do in one turn
+    :return: list of all possible moves (without invalids)
+    """
+    poss = [(row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1), (row, col)]  # within distance of 1
+    if max_distance == 2:
+        poss.extend([(row - 2, col), (row + 2, col), (row, col + 2), (row, col - 2)])  # within straight distance of 2
+        poss.extend([(row - 1, col - 1), (row + 1, col - 1), (row - 1, col + 1), (row - 1, col - 1)])
+
+    for loc in poss[:]:
+        if loc[0] < 0 or loc[0] >= rows:
+            poss.remove(loc)
+            continue
+        if loc[1] < 0 or loc[1] >= cols:
+            poss.remove(loc)
+    return poss
 
 
 def switch_player(game):
@@ -96,16 +289,12 @@ def handle_pirates(game, save_acts, org_game):
                 if save_acts:
                     actions.append(Action("ATTACK", pirate, rnd_target))
         if r > 0.5 or (not attacked):  # 50% chance to move
-            islands = game.get_all_islands()
-            dest = random.choice(islands)  # pick a random island as destination
-            sails_ops = game.get_sail_options(pirate, dest)  # find all ways to sail to the island
-            if len(sails_ops) < 0:  # if we can't reach the island
-                dest = game.get_my_cities()[0]  # sail to my city as a default move
-                sails_ops = game.get_sail_options(pirate, dest)
-            way = random.choice(sails_ops)  # choose a random way to reach the destination
-            game.set_sail(pirate, way)  # sail to the chosen island in the chosen way
+            poss_moves = moving_possibilities(pirate.location.row, pirate.location.col, 2)
+            move = random.choice(poss_moves)
+            move_loc = Location(move[0], move[1])
+            game.set_sail(pirate, move_loc)
             if save_acts:
-                actions.append(Action("MOVE", pirate, way))
+                actions.append(Action("MOVE", pirate, move_loc))
     return actions
 
 
@@ -117,30 +306,17 @@ def handle_drones(game, save_acts, org_game):
     :param save_acts: flag that tells if we should save the acts we preform (so we can do them in the real game)
     :type save_acts: boolean
     """
-    num_waiting = 0  # count how many drones ware "waiting" to be satcked
-    waiting = []  # save all waiting drones
-    not_waiting = []  # save all not-waiting drones
     actions = []
-    for drone in game.get_my_living_drones():  # count how many drones are waiting and sort them by type
-        if drone.distance(game.get_my_cities()[0]) == drone_wait_dist:
-            num_waiting += 1
-            waiting.append(drone)
-        else:
-            not_waiting.append(drone)
-    if num_waiting > min_drone_stack:  # if we have enough drones waiting
-        for drone in waiting:  # sail them all to my city
-            game.set_sail(drone, game.get_my_cities()[0])
-            if save_acts:
-                actions.append(Action("MOVE", drone, game.get_my_cities()[0]))
-    for drone in not_waiting:  # sail all not-waiting drones to the city range
-        angle = random.randrange(0, 359)  # choose a random degrees in the "circle" around the city
-        loc = Location(int(drone_wait_dist * math.sin(angle)),
-                       int(drone_wait_dist * math.cos(angle)))  # add a the chosen location
-        ops = game.get_sail_options(drone, loc)
-        way = random.choice(ops)
-        game.set_sail(drone, way)
+    num_of_drones = len(game.get_my_living_drones())
+    for drone in game.get_my_living_drones():
+        poss_moves = moving_possibilities(drone.location.row, drone.location.col, 1)
+        move = random.choice(poss_moves)
+        move_loc = Location(move[0],move[1])
+        if num_of_drones > min_drone_wait_num:
+            move_loc = random.choice(game.get_sail_options(drone, game.get_my_cities()[0]))
         if save_acts:
-            actions.append(Action("MOVE", drone, way))
+            actions.append(Action("MOVE", drone, move_loc))
+        game.set_sail(drone, move_loc)
     return actions
 
 
@@ -158,48 +334,6 @@ def play_rand_turn(game, save_acts, org_game):
     return turn_acts
 
 
-def score_game(game):
-    """
-    Return the scoring for the game board given.
-
-    Score includes:
-    - dif between my score and enemy score (between -19 to 19)
-    - 0.5 * (dif between my total HP and enemy total HP)
-    - 2 * (dif between my islands and enemy islands) (between -2*num_of_cities to 2*num_of_cities)
-    - 0.5 * (dif between my num of drones and enemy num of drones)
-    - k * average distance between my drone and my city
-    - (-k) * average distance between enemy drone and enemy city
-
-    :param game
-    :type game: PirateGame
-    :return: score of game board
-    :type: float
-    """
-
-    score = 0
-    score += game.get_my_score() - game.get_enemy_score()
-
-    # Score takes into consideration the HP difference
-    my_total_hp = sum([pirate.current_health for pirate in game.get_my_living_pirates()])
-    enemy_total_hp = sum([pirate.current_health for pirate in game.get_enemy_living_pirates()])
-    score += 0.5 * (my_total_hp - enemy_total_hp)
-
-    # Score takes into consideration the dif between num of islands
-    score += 2 * (len(game.get_my_islands()) - len(game.get_enemy_islands()))
-
-    # Score takes into cosideration the dif between num of drones:
-    score += 0.5 * (len(game.get_my_living_drones()) - len(game.get_enemy_living_drones()))
-
-    # Score takes into consideration the average distance between my drone and my city
-    if len(game.get_my_living_drones()) > 0:
-        my_drone_to_city_distances = [drone.distance(game.get_my_cities()[0]) for drone in game.get_my_living_drones()]
-        score += 0.1 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
-    if len(game.get_enemy_living_drones()) > 0:
-        enemy_drone_to_city_distances =\
-            [drone.distance(game.get_enemy_cities()[0]) for drone in game.get_enemy_living_drones()]
-        score -= 0.1 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
-
-    return score
 
 
 def run_trial(game, org_game):
@@ -211,15 +345,17 @@ def run_trial(game, org_game):
     :type: list[int,list[Action]]
     """
     # do the first turn and save the actions
-    my_action = play_rand_turn(game, True, org_game)  # play a turn, save actions
+    my_actions = play_rand_turn(game, True, org_game)  # play a turn, save actions
     switch_player(game)  # switch player
     # we need to do "turns" number of turns, so twice the number of plays (each turn is one me play one enemy play)
     # we did above the first turn, so we need 2*(turns-1) plays + 1 play to finish turn 1, so 2*turns-1 play
-    for dummy_i in range(2*turns-1):
+    for dummy_i in range(2 * turns - 1):
         play_rand_turn(game, False, org_game)  # play a turn, don't save actions
         switch_player(game)  # switch player
+    game._finish_turn()
     score = score_game(game)  # calculate score
-    return [score, my_action]
+    org_game.debug(score) #[act.get_target() for act in my_actions],game.get_my_living_pirates()[0])
+    return [score, my_actions]
 
 
 def choose_best_acts(scores, actions):
@@ -260,18 +396,25 @@ def do_turn(game):
     :param game: the current game state
     :type game: PiratesGame
     """
-    me_id = game.get_myself().id
-    enemy_id = game.get_enemy().id
-    drone_wait_dist = game.get_my_cities()[0].distance(game.get_enemy_cities()[0]) / 2
+    global rows, cols
+    rows = game.get_row_count()
+    cols = game.get_col_count()
+
     global me_id  # ID of my player
     global enemy_id  # ID of enemy player
     global drone_wait_dist
+    me_id = game.get_myself().id
+    enemy_id = game.get_enemy().id
+    drone_wait_dist = game.get_my_cities()[0].distance(game.get_enemy_cities()[0]) / 2
+
     scores = []
     actions = []
     for dummy_i in range(N):  # do this N times
-        cp = copy.deepcopy(game)  # copy game
+        cp = Board(game)  # copy game
+        #cp._PirateGame__out_stream = None # change output stream to none so it doesn't interfere with game's one.
         ret = run_trial(cp, game)  # run a trial
         scores.append(ret[0])  # add the score to scores
         actions.append(ret[1])  # add the actions to actions
     best = choose_best_acts(scores, actions)  # choose the best score
+    # game.debug([act.print_action() for act in best])
     execute_turn(best, game)  # do the actions
