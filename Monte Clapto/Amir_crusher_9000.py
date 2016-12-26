@@ -11,6 +11,108 @@ import math
 
 # Class Definitions
 
+class Board:
+    PIRATE = 0
+    DRONE = 1
+    ISLAND = 2
+    CITY = 3
+
+    MY_TEAM = 0
+    OTHER_TEAM = 1
+    NONE = 2 #for islands
+
+    def __init__(self, game):
+        self._object_list = []
+        for pirate in game.get_my_living_pirates():
+            _object_list.append((PIRATE, pirate.get_location(), pirate.id(), MY_TEAM))
+        for pirate in game.get_enemy_living_pirates():
+            _object_list.append((PIRATE, pirate.get_location(), pirate.id(), ENEMY_TEAM))
+        for drone in game.get_my_living_drones():
+            _object_list.append((DRONE, drone.get_location(), drone.id(), MY_TEAM))
+        for drone in game.get_enemy_living_drones():
+            _object_list.append((DRONE, drone.get_location(), drone.id(), ENEMY_TEAM))
+        for island in game.get_my_islands():
+            _object_list.append((ISLAND, island.get_location(), island.id(), MY_TEAM))
+        for island in game.get_my_islands():
+            _object_list.append((ISLAND, island.get_location(), island.id(), ENEMY_TEAM))
+        for city in game.get_my_cities():
+            _object_list.append((CITY, city.get_location(), city.id(), MY_TEAM))
+        for city in game.get_enemy_cities():
+            _object_list.append((CITY, city.get_location(), city.id(), ENEMY_TEAM))
+
+    def score(self):
+        """
+
+        :return:
+        """
+
+    def make_move(self, who, where):
+        """
+        Move in board. Assumes location is legal!
+        :param who:
+        :param where:
+        :return:
+        """
+
+
+    def make_attack(self,who,where):
+        """
+
+        :param who:
+        :param where:
+        :return:
+        """
+
+    def get_all_my_pirates(self,player):
+        """
+
+        :param player:
+        :return:
+        """
+
+
+    def get_all_enemy_pirates(self,player):
+        """
+
+        :param player:
+        :return:
+        """
+
+    def get_all_my_drones(self,player):
+         """
+
+         :param player:
+         :return:
+         """
+
+    def get_all_enemy_drones(self, player):
+        """
+
+        :param player:
+        :return:
+        """
+
+    def get_all_my_islands(self,player):
+        """
+
+        :param player:
+        :return:
+        """
+
+    def get_all_not_my_islands(self,player):
+        """
+
+        :param player:
+        :return:
+        """
+
+
+    def clone(self):
+        """
+
+        :return:
+        """
+
 
 class Action:
     """
@@ -199,19 +301,19 @@ def score_game(game):
     # Score takes into consideration the average distance between my drone and my city
     if len(game.get_my_living_drones()) > 0:
         my_drone_to_city_distances = [drone.distance(game.get_my_cities()[0]) for drone in game.get_my_living_drones()]
-        score += 0.8 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
+        score += -0.8 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
     if len(game.get_enemy_living_drones()) > 0:
         enemy_drone_to_city_distances = \
             [drone.distance(game.get_enemy_cities()[0]) for drone in game.get_enemy_living_drones()]
-        score -= 1.6 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
+        score += 1.6 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
 
     # Score takes into consideration the average distance between my pirate and any other game object
     #  (not including my pirate and islands)
     if len(game.get_my_living_pirates()) > 0:
         distances = []
-        for obj in game.get_enemy_living_aircrafts() + game.get_not_my_islands():
+        for obj in game.get_enemy_living_drones() + game.get_not_my_islands():
             distances.extend([pirate.distance(obj) for pirate in game.get_my_living_pirates()])
-        score += 0.8 * (sum(distances) / float(len(distances)))
+        score += -0.8 * (sum(distances) / float(len(distances)))
     return score
 
 
@@ -233,7 +335,7 @@ def run_trial(game, org_game):
         switch_player(game)  # switch player
     game._finish_turn()
     score = score_game(game)  # calculate score
-    org_game.debug(score, [act.get_target() for act in my_actions],game.get_my_living_pirates()[0])
+    org_game.debug(score) #[act.get_target() for act in my_actions],game.get_my_living_pirates()[0])
     return [score, my_actions]
 
 
@@ -295,5 +397,6 @@ def do_turn(game):
         scores.append(ret[0])  # add the score to scores
         actions.append(ret[1])  # add the actions to actions
     best = choose_best_acts(scores, actions)  # choose the best score
+    game.debug(game.get_my_pirate_by_id())
     # game.debug([act.print_action() for act in best])
     execute_turn(best, game)  # do the actions
