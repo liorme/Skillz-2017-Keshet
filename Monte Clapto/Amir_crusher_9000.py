@@ -205,10 +205,13 @@ def score_game(game):
             [drone.distance(game.get_enemy_cities()[0]) for drone in game.get_enemy_living_drones()]
         score -= 1.6 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
 
-    # Score takes into consideration the average distance between my pirate and center of board (for beginning of game)
+    # Score takes into consideration the average distance between my pirate and any other game object
+    #  (not including my pirate and islands)
     if len(game.get_my_living_pirates()) > 0:
-        my_pirate_to_center_distances = [pirate.distance(Location(25, 23)) for pirate in game.get_my_living_pirates()]
-        score += 0.8 * (sum(my_pirate_to_center_distances) / float(len(my_pirate_to_center_distances)))
+        distances = []
+        for obj in game.get_enemy_living_aircrafts() + game.get_not_my_islands():
+            distances.extend([pirate.distance(obj) for pirate in game.get_my_living_pirates()])
+        score += 0.8 * (sum(distances) / float(len(distances)))
     return score
 
 
