@@ -54,6 +54,11 @@ class MyAircraft:
         return self._id
 
     def get_location(self):
+        """
+        get my location
+        :return: my location
+        :rtype Location
+        """
         return self._location
 
     def get_type(self):
@@ -146,13 +151,13 @@ class Board:
                                                        game.get_drone_max_health(), drone.max_speed, 0))
 
         for island in game.get_my_islands():
-            self._island_list.append((ISLAND, island.get_location(), island.id, MY_TEAM))
+            self._island_list.append(MapLocation(ISLAND, island.get_location(), island.id, MY_TEAM))
 
         for island in game.get_enemy_islands():
-            self._island_list.append((ISLAND, island.get_location(), island.id, ENEMY_TEAM))
+            self._island_list.append(MapLocation(ISLAND, island.get_location(), island.id, ENEMY_TEAM))
 
         for island in game.get_not_my_islands():
-            self._island_list.append((ISLAND, island.get_location(), island.id, NEUTRAL))
+            self._island_list.append(MapLocation(ISLAND, island.get_location(), island.id, NEUTRAL))
 
         for city in game.get_my_cities():
             self._player0_city_list.append(MapLocation(CITY, city.get_location(), city.id, MY_TEAM))
@@ -182,8 +187,8 @@ class Board:
         score += 100 * (self.get_my_score(player) - self.get_enemy_score(player))
 
         # Score takes into consideration the HP difference
-        my_total_hp = sum([pirate.current_health for pirate in self.get_my_living_pirates(player)])
-        enemy_total_hp = sum([pirate.current_health for pirate in self.get_enemy_living_pirates(player)])
+        my_total_hp = sum([pirate.get_health() for pirate in self.get_my_living_pirates(player)])
+        enemy_total_hp = sum([pirate.get_health() for pirate in self.get_enemy_living_pirates(player)])
         score += 0.8 * (my_total_hp - enemy_total_hp)
 
         # Score takes into consideration the dif between num of islands
@@ -291,7 +296,7 @@ class Board:
         """
         if player == MY_TEAM:
             return self._player0_drone_list
-        return self._player1_drones_list
+        return self._player1_drone_list
 
     def get_enemy_living_drones(self, player):
         """
@@ -313,7 +318,7 @@ class Board:
         :return: list of all islands I control
         :rtype List[MapLocation]
         """
-        return filter(lambda x: x.team == player, self._island_list)
+        return filter(lambda x: x.get_team() == player, self._island_list)
 
     def get_not_my_islands(self, player):
         """
@@ -323,7 +328,7 @@ class Board:
         :return: list of all islands I don't control
         :rtype List[MapLocation]
         """
-        return filter(lambda x: x.team != player, self._island_list)
+        return filter(lambda x: x.get_team() != player, self._island_list)
 
     def get_enemy_islands(self, player):
         """
@@ -356,6 +361,9 @@ class Board:
             return self._player0_city_list
         return self._player1_city_list
 
+    def get_enemy_cities(self, player):
+        return self.get_my_cities(switch_player(player))
+
     def clone(self):
         """
         clones this board
@@ -363,14 +371,14 @@ class Board:
         :rtype Board
         """
         clone = Board(self._game)
-        clone._player0_pirate_list = self._player0_pirate_list
-        clone._player1_pirate_list = self._player1_pirate_list
-        clone._player0_drone_list = self._player0_drone_list
-        clone._player1_drone_list = self._player1_drone_list
-        clone._island_list = self._island_list
-        clone._player0_city_list = self._player0_city_list
-        clone._player1_city_list = self._player1_city_list
-        clone._actions = self._actions
+        clone._player0_pirate_list = self._player0_pirate_list[:]
+        clone._player1_pirate_list = self._player1_pirate_list[:]
+        clone._player0_drone_list = self._player0_drone_list[:]
+        clone._player1_drone_list = self._player1_drone_list[:]
+        clone._island_list = self._island_list[:]
+        clone._player0_city_list = self._player0_city_list[:]
+        clone._player1_city_list = self._player1_city_list[:]
+        clone._actions = self._actions[:]
         clone._player0_score = self._player0_score
         clone._player1_score = self._player1_score
         clone._rows = self._rows
@@ -389,9 +397,9 @@ class Board:
             if r < 0.5:  # 50% chance to attack
                 can_be_attacked = self.get_all_enemy_aircrafts_in_range(pirate, player)
                 if len(can_be_attacked) > 0:  # if we can attack at least one enemy
-                    self.attack(pirate, random.choice(can_be_attacked))  # attack a random attackable target
+                    self.make_attack(pirate, random.choice(can_be_attacked))  # attack a random attackable target
                     attacked = True  # set flag to true - we just attacked
-            if r > 0.5 or (not attacked):  # 50% chance to move
+            if not attacked:  # move if couldn't attack or chose not to
                 move_ops = self.get_move_options(pirate, pirate.get_max_speed())
                 self.make_move(pirate, random.choice(move_ops))
 
@@ -410,6 +418,7 @@ class Board:
         """
         give all aircrafts one random legal order
         """
+        self._actions = []  # get rid of last turn's actions
         self._handle_pirates(player)
         self._handle_drones(player)
 
@@ -443,17 +452,17 @@ class Board:
         col = aircraft_loc.col
         options = []
         if max_distance == 1:
-            options = [(row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1), (row, col)]  # distance of 1
+            options = [Location(row - 1, col), Location(row + 1, col), Location(row, col - 1), Location(row, col + 1), Location(row, col)]  # distance of 1
         if max_distance == 2:
             options.extend(
-                [(row - 2, col), (row + 2, col), (row, col + 2), (row, col - 2)])  # within straight distance of 2
-            options.extend([(row - 1, col - 1), (row + 1, col - 1), (row - 1, col + 1), (row - 1, col - 1)])
+                [Location(row - 2, col), Location(row + 2, col), Location(row, col + 2), Location(row, col - 2)])  # within straight distance of 2
+            options.extend([Location(row - 1, col - 1), Location(row + 1, col - 1), Location(row - 1, col + 1), Location(row - 1, col - 1)])
 
         for loc in options[:]:
-            if loc[0] < 0 or loc[0] >= self._rows:
+            if loc.row < 0 or loc.row >= self._rows:
                 options.remove(loc)
                 continue
-            if loc[1] < 0 or loc[1] >= self._cols:
+            if loc.col < 0 or loc.col >= self._cols:
                 options.remove(loc)
         return options
 
@@ -507,11 +516,18 @@ def execute_turn(best, game):
     :type game: PirateGame
     """
     acts = best.get_actions()
+    game.debug(len(acts))
     for act in acts:
         if act.get_type() == "MOVE":
-            game.set_sail(act.get_who(), act.get_where())
+            destination = act.get_where()
+            game.set_sail(game.get_my_pirate_by_id(act.get_who().get_id()), destination)
         else:
-            game.attack(act.get_who(), act.get_where())
+            type = act.get_where().get_type()
+            if type == DRONE:
+                target = game.get_enemy_drone_by_id(act.get_where().get_id())
+            else:
+                target = game.get_enemy_pirate_by_id(act.get_where().get_id())
+            game.attack(game.get_my_pirate_by_id(act.get_who().get_id()), target)
 
 
 def make_board(game):
@@ -537,7 +553,7 @@ def choose_n_best_boards(boards, n):
     :rtype: List[Board]
     """
     i = n
-    scores = map(lambda x: x.score_board(MY_TEAM), boards)
+    scores = map(lambda x: x.score_game(MY_TEAM), boards)
     best_boards = []
     while i > 0:
         best_boards.append(choose_best_board(scores, boards))
@@ -553,7 +569,7 @@ def average(lst):
     :return: the average of the list
     :rtype int
     """
-    return sum(lst)/flot(len(lst))
+    return sum(lst)/float(len(lst))
 
 
 def do_turn(game):
