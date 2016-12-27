@@ -470,7 +470,7 @@ class Board:
 num_of_one_turn_trials = 60  # number of trials
 num_of_mult_turn_trials = 35
 num_of_best_boards = 5
-turns = 3  # number of turns per trial
+turns = 2  # number of turns per trial
 min_drone_wait_num = 15
 
 
@@ -520,7 +520,11 @@ def execute_turn(best, game):
     for act in acts:
         if act.get_type() == "MOVE":
             destination = act.get_where()
-            game.set_sail(game.get_my_pirate_by_id(act.get_who().get_id()), destination)
+            type = act.get_who().get_type()
+            if type == DRONE:
+                game.set_sail(game.get_my_drone_by_id(act.get_who().get_id()), destination)
+            else:
+                game.set_sail(game.get_my_pirate_by_id(act.get_who().get_id()), destination)
         else:
             type = act.get_where().get_type()
             if type == DRONE:
