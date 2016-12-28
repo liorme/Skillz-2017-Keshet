@@ -211,9 +211,10 @@ class Board:
         #  (not including my pirate and islands)
         if len(self.get_my_living_pirates(player)) > 0:
             distances = []
-            for obj in self.get_enemy_living_drones(player) + self.get_not_my_islands(player):
-                distances.extend([pirate.distance(obj) for pirate in self.get_my_living_pirates(player)])
-            score += -0.8 * (sum(distances) / float(len(distances)))
+            if len(self.get_enemy_living_drones(player)) + len(self.get_not_my_islands(player)) != 0:
+                for obj in self.get_enemy_living_drones(player) + self.get_not_my_islands(player):
+                    distances.extend([pirate.distance(obj) for pirate in self.get_my_living_pirates(player)])
+                score += -0.8 * (sum(distances) / float(len(distances)))
 
         return score
 
@@ -599,9 +600,9 @@ def do_turn(game):
     best_one_turn = choose_n_best_boards(boards, num_of_best_boards)
     game.debug([(board.score_game(MY_TEAM), board.get_my_living_pirates(MY_TEAM)[0].get_location()) for board in
                 best_one_turn])
-    scores = []
-    for b in best_one_turn:
-        b_scores = [b.clone().run_trial(ENEMY_TEAM) for i in range(num_of_mult_turn_trials)]
-        scores.append(average(b_scores))
+    scores = [board.score_game(MY_TEAM) for board in best_one_turn]
+   # for b in best_one_turn:
+    #    b_scores = [b.clone().run_trial(ENEMY_TEAM) for i in range(num_of_mult_turn_trials)]
+     #   scores.append(average(b_scores))
     best = choose_best_board(scores, best_one_turn)
     execute_turn(best, game)
