@@ -43,7 +43,7 @@ class MyAircraft:
 
     def __init__(self, type, location, id, team, max_health, max_move, attack_range):
         self._type = type
-        self._location = location
+        self._location = clone_location(location)
         self._id = id
         self._team = team
         self._health = max_health
@@ -68,7 +68,7 @@ class MyAircraft:
         return self._team
 
     def set_location(self, new_loc):
-        self._location = new_loc
+        self._location = clone_location(new_loc)
 
     def get_health(self):
         return self._health
@@ -214,6 +214,7 @@ class Board:
             for obj in self.get_enemy_living_drones(player) + self.get_not_my_islands(player):
                 distances.extend([pirate.distance(obj) for pirate in self.get_my_living_pirates(player)])
             score += -0.8 * (sum(distances) / float(len(distances)))
+
         return score
 
     def make_move(self, who, where):
@@ -371,19 +372,20 @@ class Board:
         :rtype Board
         """
         clone = Board(self._game)
-        clone._player0_pirate_list = self._player0_pirate_list[:]
-        clone._player1_pirate_list = self._player1_pirate_list[:]
-        clone._player0_drone_list = self._player0_drone_list[:]
-        clone._player1_drone_list = self._player1_drone_list[:]
-        clone._island_list = self._island_list[:]
-        clone._player0_city_list = self._player0_city_list[:]
-        clone._player1_city_list = self._player1_city_list[:]
-        clone._actions = self._actions[:]
-        clone._player0_score = self._player0_score
-        clone._player1_score = self._player1_score
-        clone._rows = self._rows
-        clone._cols = self._cols
         return clone
+        # clone._player0_pirate_list = self._player0_pirate_list[:]
+        # clone._player1_pirate_list = self._player1_pirate_list[:]
+        # clone._player0_drone_list = self._player0_drone_list[:]
+        # clone._player1_drone_list = self._player1_drone_list[:]
+        # clone._island_list = self._island_list[:]
+        # clone._player0_city_list = self._player0_city_list[:]
+        # clone._player1_city_list = self._player1_city_list[:]
+        # clone._actions = self._actions[:]
+        # clone._player0_score = self._player0_score
+        # clone._player1_score = self._player1_score
+        # clone._rows = self._rows
+        # clone._cols = self._cols
+        # return clone
 
     def _handle_pirates(self, player):
         """
@@ -476,6 +478,8 @@ min_drone_wait_num = 15
 
 # Function Definitions
 
+def clone_location(loc):
+    return Location(loc.row, loc.col)
 
 def switch_player(player):
     """
@@ -560,7 +564,10 @@ def choose_n_best_boards(boards, n):
     scores = map(lambda x: x.score_game(MY_TEAM), boards)
     best_boards = []
     while i > 0:
-        best_boards.append(choose_best_board(scores, boards))
+        best_board = choose_best_board(scores, boards)
+        best_boards.append(best_board)
+        boards.remove(best_board)
+        scores.remove(best_board.score_game(MY_TEAM))
         i -= 1
     return best_boards
 
@@ -588,7 +595,10 @@ def do_turn(game):
         clone = board.clone()
         clone.do_random_turn(MY_TEAM)
         boards.append(clone)
+    game.debug(boards[0].get_my_living_pirates(MY_TEAM) == boards[1].get_my_living_pirates(MY_TEAM))
     best_one_turn = choose_n_best_boards(boards, num_of_best_boards)
+    game.debug([(board.score_game(MY_TEAM), board.get_my_living_pirates(MY_TEAM)[0].get_location()) for board in
+                best_one_turn])
     scores = []
     for b in best_one_turn:
         b_scores = [b.clone().run_trial(ENEMY_TEAM) for i in range(num_of_mult_turn_trials)]
