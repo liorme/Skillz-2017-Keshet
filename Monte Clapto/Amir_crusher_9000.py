@@ -131,6 +131,8 @@ class Board:
         self._player1_city_list = []
         self._player0_score = game.get_my_score()
         self._player1_score = game.get_enemy_score()
+        self._unload_range = game.get_unload_range()
+        self._control_range = game.get_control_range()
 
         for pirate in game.get_my_living_pirates():
             self._player0_pirate_list.append(MyAircraft(PIRATE, pirate.get_location(), pirate.id, MY_TEAM,
@@ -192,7 +194,7 @@ class Board:
         score += 0.8 * (my_total_hp - enemy_total_hp)
 
         # Score takes into consideration the dif between num of islands
-        score += 3 * (len(self.get_my_islands(player)) - len(self.get_enemy_islands(player)))
+        score += 10 * len(self.get_my_islands(player)) - 3*len(self.get_enemy_islands(player))
 
         # Score takes into cosideration the dif between num of drones:
         score += 2 * (len(self.get_my_living_drones(player)) - len(self.get_enemy_living_drones(player)))
@@ -201,7 +203,7 @@ class Board:
         if len(self.get_my_living_drones(player)) > 0:
             my_drone_to_city_distances = [drone.distance(self.get_my_cities(player)[0]) for drone in
                                           self.get_my_living_drones(player)]
-            score += -0.8 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
+            score += -5 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
         if len(self.get_enemy_living_drones(player)) > 0:
             enemy_drone_to_city_distances = \
                 [drone.distance(self.get_enemy_cities(player)[0]) for drone in self.get_enemy_living_drones(player)]
@@ -228,6 +230,12 @@ class Board:
         """
         who.set_location(where)
         self._actions.append(Action("MOVE", who, where))
+        if who.get_type() == DRONE and who.distance(self.get_my_cities(who.get_team())[0]) < self._unload_range:
+            if who.get_team() == MY_TEAM:
+                self._player0_score += 1
+            else:
+                self._player1_score += 1
+
 
     def make_attack(self, who, target):
         """
@@ -470,8 +478,8 @@ class Board:
         return options
 
 # Constants and global variables
-num_of_one_turn_trials = 60  # number of trials
-num_of_mult_turn_trials = 35
+num_of_one_turn_trials = 40  # number of trials
+num_of_mult_turn_trials = 30
 num_of_best_boards = 5
 turns = 2  # number of turns per trial
 min_drone_wait_num = 15
@@ -521,7 +529,7 @@ def execute_turn(best, game):
     :type game: PirateGame
     """
     acts = best.get_actions()
-    game.debug(len(acts))
+    #game.debug(len(acts))
     for act in acts:
         if act.get_type() == "MOVE":
             destination = act.get_where()
@@ -596,13 +604,14 @@ def do_turn(game):
         clone = board.clone()
         clone.do_random_turn(MY_TEAM)
         boards.append(clone)
-    game.debug(boards[0].get_my_living_pirates(MY_TEAM) == boards[1].get_my_living_pirates(MY_TEAM))
+    #game.debug(boards[0].get_my_living_pirates(MY_TEAM) == boards[1].get_my_living_pirates(MY_TEAM))
     best_one_turn = choose_n_best_boards(boards, num_of_best_boards)
-    game.debug([(board.score_game(MY_TEAM), board.get_my_living_pirates(MY_TEAM)[0].get_location()) for board in
-                best_one_turn])
+    #game.debug([(board.score_game(MY_TEAM), board.get_my_living_pirates(MY_TEAM)[0].get_location()) for board in
+    #            best_one_turn])
     scores = [board.score_game(MY_TEAM) for board in best_one_turn]
-   # for b in best_one_turn:
-    #    b_scores = [b.clone().run_trial(ENEMY_TEAM) for i in range(num_of_mult_turn_trials)]
-     #   scores.append(average(b_scores))
+    #scores = []
+    #for b in best_one_turn:
+     #   b_scores = [b.clone().run_trial(ENEMY_TEAM) for i in range(num_of_mult_turn_trials)]
+      #  scores.append(average(b_scores))
     best = choose_best_board(scores, best_one_turn)
     execute_turn(best, game)
