@@ -118,6 +118,9 @@ class MapLocation:
     def get_team(self):
         return self._team
 
+    def set_team(self, new_team):
+        self._team = new_team
+
 
 class Board:
 
@@ -230,12 +233,6 @@ class Board:
         """
         who.set_location(where)
         self._actions.append(Action("MOVE", who, where))
-        if who.get_type() == DRONE and who.distance(self.get_my_cities(who.get_team())[0]) < self._unload_range:
-            if who.get_team() == MY_TEAM:
-                self._player0_score += 1
-            else:
-                self._player1_score += 1
-
 
     def make_attack(self, who, target):
         """
@@ -247,6 +244,11 @@ class Board:
         """
         target.decrease_health(1)
         self._actions.append(Action("ATTACK", who, target))
+        if target.get_health() == 0:
+            if target.get_type() == DRONE:
+                self.get_my_living_drones(target.get_team()).remove(target)
+            else:
+                self.get_my_living_pirates(target.get_team()).remove(target)
 
     def get_my_score(self, player):
         """
@@ -424,6 +426,29 @@ class Board:
             poss_moves = self.get_move_options(drone, drone.get_max_speed())
             move = random.choice(poss_moves)
             self.make_move(drone, move)
+            # handle drones scoring points
+            if drone.get_type() == DRONE and drone.distance(self.get_my_cities(player)[0]) < self._unload_range:
+                if player == MY_TEAM:
+                    self._player0_score += 1
+                else:
+                    self._player1_score += 1
+                self.get_my_living_drones(player).remove(drone)  # drone dies after scoring a point
+
+    def _check_island_ownership(self, player):
+        for island in self.get_not_my_islands(player):
+            # find all islands in  control range
+            friendly_in_range = filter(lambda x: x.distance(island) <= self._control_range,
+                                       self.get_my_living_pirates(player))
+            enemy_in_range = filter(lambda x: x.distance(island) <= self._control_range,
+                                    self.get_enemy_living_pirates(player))
+            if len(friendly_in_range) < len(enemy_in_range):  # enemy has more ships then we do near this island
+                island.set_team(switch_player(player))  # enemy controls this island
+            elif len(friendly_in_range) > len(enemy_in_range):  # we have more ships then enemy does near this island
+                island.set_team(player)  # we control this island
+            elif len(friendly_in_range) == 0 and len(enemy_in_range) == 0:  # we both have no ships near this island
+                return  # we original controller remains
+            else:  # we both have the same non-zero number of ships
+                island.set_team(NEUTRAL)  # no one controls this island
 
     def do_random_turn(self, player):
         """
@@ -432,6 +457,7 @@ class Board:
         self._actions = []  # get rid of last turn's actions
         self._handle_pirates(player)
         self._handle_drones(player)
+        self._check_island_ownership(player)
 
     def run_trial(self, player):
         """
@@ -463,11 +489,14 @@ class Board:
         col = aircraft_loc.col
         options = []
         if max_distance == 1:
-            options = [Location(row - 1, col), Location(row + 1, col), Location(row, col - 1), Location(row, col + 1), Location(row, col)]  # distance of 1
+            options = [Location(row - 1, col), Location(row + 1, col), Location(row, col - 1),
+                       Location(row, col + 1)]  # distance of 1
         if max_distance == 2:
             options.extend(
-                [Location(row - 2, col), Location(row + 2, col), Location(row, col + 2), Location(row, col - 2)])  # within straight distance of 2
-            options.extend([Location(row - 1, col - 1), Location(row + 1, col - 1), Location(row - 1, col + 1), Location(row - 1, col - 1)])
+                [Location(row - 2, col), Location(row + 2, col), Location(row, col + 2),
+                 Location(row, col - 2)])  # within straight distance of 2
+            options.extend([Location(row - 1, col - 1), Location(row + 1, col - 1),
+                            Location(row - 1, col + 1), Location(row - 1, col - 1)])
 
         for loc in options[:]:
             if loc.row < 0 or loc.row >= self._rows:
@@ -478,8 +507,8 @@ class Board:
         return options
 
 # Constants and global variables
-num_of_one_turn_trials = 40  # number of trials
-num_of_mult_turn_trials = 30
+num_of_one_turn_trials = 25  # number of trials
+num_of_mult_turn_trials = 12
 num_of_best_boards = 5
 turns = 2  # number of turns per trial
 min_drone_wait_num = 15
@@ -489,6 +518,7 @@ min_drone_wait_num = 15
 
 def clone_location(loc):
     return Location(loc.row, loc.col)
+
 
 def switch_player(player):
     """
@@ -529,7 +559,7 @@ def execute_turn(best, game):
     :type game: PirateGame
     """
     acts = best.get_actions()
-    #game.debug(len(acts))
+    # game.debug(len(acts))
     for act in acts:
         if act.get_type() == "MOVE":
             destination = act.get_where()
@@ -604,14 +634,11 @@ def do_turn(game):
         clone = board.clone()
         clone.do_random_turn(MY_TEAM)
         boards.append(clone)
-    #game.debug(boards[0].get_my_living_pirates(MY_TEAM) == boards[1].get_my_living_pirates(MY_TEAM))
     best_one_turn = choose_n_best_boards(boards, num_of_best_boards)
-    #game.debug([(board.score_game(MY_TEAM), board.get_my_living_pirates(MY_TEAM)[0].get_location()) for board in
-    #            best_one_turn])
-    scores = [board.score_game(MY_TEAM) for board in best_one_turn]
-    #scores = []
-    #for b in best_one_turn:
-     #   b_scores = [b.clone().run_trial(ENEMY_TEAM) for i in range(num_of_mult_turn_trials)]
-      #  scores.append(average(b_scores))
+    # scores = [board.score_game(MY_TEAM) for board in best_one_turn]
+    scores = []
+    for b in best_one_turn:
+        b_scores = [b.clone().run_trial(ENEMY_TEAM) for i in range(num_of_mult_turn_trials)]
+        scores.append(average(b_scores))
     best = choose_best_board(scores, best_one_turn)
     execute_turn(best, game)
