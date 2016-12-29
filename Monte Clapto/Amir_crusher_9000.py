@@ -475,6 +475,19 @@ class Board:
     def get_actions(self):
         return self._actions
 
+    def execute_actions(self,actions):
+        for act in actions:
+            who = act.get_who()
+            if who.get_team() == MY_TEAM:
+                who = self._player0_pirate_list[who.get_id()]
+            else:
+                who = self._player1_pirate_list[who.get_id()]
+
+            if act.get_type() == 'MOVE':
+                self.make_move(who, act.get_where())
+            else:
+                self.make_attack(who, act.get_where())
+
     def get_move_options(self, aircraft, max_distance):
         """
         returns all the location pirate can move to
@@ -638,7 +651,11 @@ def do_turn(game):
     # scores = [board.score_game(MY_TEAM) for board in best_one_turn]
     scores = []
     for b in best_one_turn:
-        b_scores = [b.clone().run_trial(ENEMY_TEAM) for i in range(num_of_mult_turn_trials)]
+        b_scores = []
+        for i in range(num_of_mult_turn_trials):
+            baord = b.clone()
+            board.execute_actions(b.get_actions())
+            b_scores.append(board.run_trial(ENEMY_TEAM))
         scores.append(average(b_scores))
     best = choose_best_board(scores, best_one_turn)
     execute_turn(best, game)
