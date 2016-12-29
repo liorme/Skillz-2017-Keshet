@@ -80,7 +80,7 @@ class MyAircraft:
         """
         computes the distance between me and other
         :param other: aircraft to compute distance
-        :type other: MyAircraft
+        :type other: MyAircraft or MapLocation
         :return: the distance between me and other
         :rtype float
         """
@@ -197,10 +197,10 @@ class Board:
         score += 0.8 * (my_total_hp - enemy_total_hp)
 
         # Score takes into consideration the dif between num of islands
-        score += 10 * len(self.get_my_islands(player)) - 3*len(self.get_enemy_islands(player))
+        score += 14 * len(self.get_my_islands(player)) - 3*len(self.get_enemy_islands(player))
 
         # Score takes into cosideration the dif between num of drones:
-        score += 2 * (len(self.get_my_living_drones(player)) - len(self.get_enemy_living_drones(player)))
+        score += 2 * (len(self.get_my_living_drones(player)) - 2*len(self.get_enemy_living_drones(player)))
 
         # Score takes into consideration the average distance between my drone and my city
         if len(self.get_my_living_drones(player)) > 0:
@@ -280,7 +280,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all my living pirates
-        :rtype List[MyAircraft]
+        :rtype list[MyAircraft]
         """
         if player == MY_TEAM:
             return self._player0_pirate_list
@@ -292,7 +292,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all enemy living pirates
-        :rtype List[MyAircraft]
+        :rtype list[MyAircraft]
         """
         if player == MY_TEAM:
             return self._player1_pirate_list
@@ -304,7 +304,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all my living drones
-        :rtype List[MyAircraft]
+        :rtype list[MyAircraft]
         """
         if player == MY_TEAM:
             return self._player0_drone_list
@@ -316,7 +316,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all enemy living drones
-        :rtype List[MyAircraft]
+        :rtype list[MyAircraft]
         """
         if player == MY_TEAM:
             return self._player1_drone_list
@@ -328,7 +328,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all islands I control
-        :rtype List[MapLocation]
+        :rtype list[MapLocation]
         """
         return filter(lambda x: x.get_team() == player, self._island_list)
 
@@ -338,7 +338,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all islands I don't control
-        :rtype List[MapLocation]
+        :rtype list[MapLocation]
         """
         return filter(lambda x: x.get_team() != player, self._island_list)
 
@@ -348,7 +348,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all islands my enemy controls
-        :rtype List[MapLocation]
+        :rtype list[MapLocation]
         """
         return self.get_my_islands(switch_player(player))  # return all enemy's "my islands"
 
@@ -360,7 +360,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all enemy aircrafts in attack range
-        :rtype: List[Aircraft]
+        :rtype: list[Aircraft]
         """
         enemy_aircrafts = self.get_enemy_living_drones(player) + self.get_enemy_living_pirates(player)
         for craft in enemy_aircrafts[:]:
@@ -413,7 +413,7 @@ class Board:
                     self.make_attack(pirate, random.choice(can_be_attacked))  # attack a random attackable target
                     attacked = True  # set flag to true - we just attacked
             if not attacked:  # move if couldn't attack or chose not to
-                move_ops = self.get_move_options(pirate, pirate.get_max_speed())
+                move_ops = self.get_move_options(pirate)
                 self.make_move(pirate, random.choice(move_ops))
 
     def _handle_drones(self, player):
@@ -423,7 +423,7 @@ class Board:
         :type player: int
         """
         for drone in self.get_my_living_drones(player):
-            poss_moves = self.get_move_options(drone, drone.get_max_speed())
+            poss_moves = self.get_move_options_towards(drone,self.get_my_cities(player)[0])
             move = random.choice(poss_moves)
             self.make_move(drone, move)
             # handle drones scoring points
@@ -475,18 +475,18 @@ class Board:
     def get_actions(self):
         return self._actions
 
-    def get_move_options(self, aircraft, max_distance):
+    def get_move_options(self, aircraft):
         """
         returns all the location pirate can move to
         :param aircraft: aircraft to get move options
         :type aircraft: MyAircraft
-        :param max_distance: the max distance the aircraft can move
         :return: all possible legal moves
-        :rtype: List[Location]
+        :rtype: list[Location]
         """
         aircraft_loc = aircraft.get_location()
         row = aircraft_loc.row
         col = aircraft_loc.col
+        max_distance = aircraft.get_max_speed()
         options = []
         if max_distance == 1:
             options = [Location(row - 1, col), Location(row + 1, col), Location(row, col - 1),
@@ -505,6 +505,23 @@ class Board:
             if loc.col < 0 or loc.col >= self._cols:
                 options.remove(loc)
         return options
+
+    def get_move_options_towards(self, aircraft, destination):
+        """
+        gets all the move options that get me closer to destination
+        :param aircraft: aircraft to get move options
+        :type aircraft: MyAircraft
+        :param destination: where we want to go
+        :type destination: MapLocation
+        :return: list of all move options that get me close to destination
+        :rtype list[Location]
+        """
+        ops = self.get_move_options(aircraft)
+        current_distance = aircraft.distance(destination)
+        closer_ops = filter(lambda x: destination.get_location().distance(x) < current_distance, ops)
+        if len(closer_ops) == 0:
+            closer_ops = [Location(aircraft.get_location().row, aircraft.get_location().col)]
+        return closer_ops
 
 # Constants and global variables
 num_of_one_turn_trials = 25  # number of trials
@@ -538,9 +555,9 @@ def choose_best_board(scores, boards):
     """
     finds the best score in scores and returns the corresponding board
     :param scores: list of averge scores of all boards tried
-    :type scores: List[int]
+    :type scores: list[int]
     :param boards: list of all boards
-    :type boards: List[Board]
+    :type boards: list[Board]
     :return: the best board
     :rtype: Board
     """
@@ -593,11 +610,11 @@ def choose_n_best_boards(boards, n):
     """
     returns the best n moves
     :param boards: a list of all moves we made
-    :type boards: List[Board]
+    :type boards: list[Board]
     :param n: number of boards to choose
     :type n: int
     :return: the n best boards
-    :rtype: List[Board]
+    :rtype: list[Board]
     """
     i = n
     scores = map(lambda x: x.score_game(MY_TEAM), boards)
@@ -615,7 +632,7 @@ def average(lst):
     """
     computes the average of the list lst
     :param lst: list to compute average
-    :type lst: List[]
+    :type lst: list[]
     :return: the average of the list
     :rtype int
     """
