@@ -105,6 +105,7 @@ def handle_pirates(game, game_state, battles):
 
     # If early in the game rush bottom middle island with 4 pirates and upper right/left island with 1 pirate
     if game_state == "EARLY":
+        """
         i = 0
         for pirate in pirates:
             if i == 0:
@@ -114,6 +115,14 @@ def handle_pirates(game, game_state, battles):
                 sail_options = game.get_sail_options(pirate, all_islands[3])
                 game.set_sail(pirate, sail_options[len(sail_options) / 2])
             i += 1
+        """
+        for pirate in pirates:
+            if len(game.get_aircrafts_on(pirate)) < 5:
+                sail_options = game.get_sail_options(pirate, game.get_my_pirate_by_id(0))
+                game.set_sail(pirate, sail_options[len(sail_options)/2])
+            else:
+                sail_options = game.get_sail_options(pirate, all_islands[3])
+                game.set_sail(pirate, sail_options[len(sail_options)/2])
 
     # Try to get islands, kill drones, kill pirates, and gain map control in general
     elif game_state == "STACK" or game_state == "CONTROL":
