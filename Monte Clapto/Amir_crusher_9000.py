@@ -80,7 +80,7 @@ class MyAircraft:
         """
         computes the distance between me and other
         :param other: aircraft to compute distance
-        :type other: MyAircraft or MapLocation
+        :type other: MyAircraft
         :return: the distance between me and other
         :rtype float
         """
@@ -120,20 +120,6 @@ class MapLocation:
 
     def set_team(self, new_team):
         self._team = new_team
-
-    def distance(self, other_location):
-        """
-        computes the distance between me and location
-        :param other_location: location to compute distance from
-        :type other_location: Location
-        :return: the distance between me and other
-        :rtype float
-        """
-        my_location = self.get_location()
-        d_row = abs(my_location.row - other_location.row)
-        d_col = abs(my_location.col - other_location.col)
-
-        return d_row + d_col
 
 
 class Board:
@@ -187,10 +173,6 @@ class Board:
         self._rows = game.get_row_count()
         self._cols = game.get_col_count()
         self._actions = []
-        # get possible stack locations for my city
-        self._stack_options = self.get_stack_options(self._player0_city_list[0], stack_dist)
-
-        self._stack_location = random.choice(self._stack_options)  # choose a random stack loaction
 
     def score_game(self, player):
         """
@@ -217,9 +199,14 @@ class Board:
         # Score takes into consideration the dif between num of islands
         score += 10 * len(self.get_my_islands(player)) - 3*len(self.get_enemy_islands(player))
 
-        # Score takes into consideration the dif between num of drones:
+        # Score takes into cosideration the dif between num of drones:
         score += 2 * (len(self.get_my_living_drones(player)) - len(self.get_enemy_living_drones(player)))
 
+        # Score takes into consideration the average distance between my drone and my city
+        if len(self.get_my_living_drones(player)) > 0:
+            my_drone_to_city_distances = [drone.distance(self.get_my_cities(player)[0]) for drone in
+                                          self.get_my_living_drones(player)]
+            score += -5 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
         if len(self.get_enemy_living_drones(player)) > 0:
             enemy_drone_to_city_distances = \
                 [drone.distance(self.get_enemy_cities(player)[0]) for drone in self.get_enemy_living_drones(player)]
@@ -293,7 +280,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all my living pirates
-        :rtype list[MyAircraft]
+        :rtype List[MyAircraft]
         """
         if player == MY_TEAM:
             return self._player0_pirate_list
@@ -305,7 +292,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all enemy living pirates
-        :rtype list[MyAircraft]
+        :rtype List[MyAircraft]
         """
         if player == MY_TEAM:
             return self._player1_pirate_list
@@ -317,7 +304,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all my living drones
-        :rtype list[MyAircraft]
+        :rtype List[MyAircraft]
         """
         if player == MY_TEAM:
             return self._player0_drone_list
@@ -329,7 +316,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all enemy living drones
-        :rtype list[MyAircraft]
+        :rtype List[MyAircraft]
         """
         if player == MY_TEAM:
             return self._player1_drone_list
@@ -341,7 +328,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all islands I control
-        :rtype list[MapLocation]
+        :rtype List[MapLocation]
         """
         return filter(lambda x: x.get_team() == player, self._island_list)
 
@@ -351,7 +338,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all islands I don't control
-        :rtype list[MapLocation]
+        :rtype List[MapLocation]
         """
         return filter(lambda x: x.get_team() != player, self._island_list)
 
@@ -361,7 +348,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all islands my enemy controls
-        :rtype list[MapLocation]
+        :rtype List[MapLocation]
         """
         return self.get_my_islands(switch_player(player))  # return all enemy's "my islands"
 
@@ -373,7 +360,7 @@ class Board:
         :param player: who am I
         :type player: int
         :return: list of all enemy aircrafts in attack range
-        :rtype: list[Aircraft]
+        :rtype: List[Aircraft]
         """
         enemy_aircrafts = self.get_enemy_living_drones(player) + self.get_enemy_living_pirates(player)
         for craft in enemy_aircrafts[:]:
@@ -426,7 +413,7 @@ class Board:
                     self.make_attack(pirate, random.choice(can_be_attacked))  # attack a random attackable target
                     attacked = True  # set flag to true - we just attacked
             if not attacked:  # move if couldn't attack or chose not to
-                move_ops = self.get_move_options(pirate)
+                move_ops = self.get_move_options(pirate, pirate.get_max_speed())
                 self.make_move(pirate, random.choice(move_ops))
 
     def _handle_drones(self, player):
@@ -435,18 +422,12 @@ class Board:
         :param player: who am i
         :type player: int
         """
-
-        # handle all "stacked" drones waiting
-        on_stack_location = self.get_my_drones_on(self._stack_location, player)
-        if len(on_stack_location) >= min_drone_wait_num:
-            self._adjust_stack(player)
-
-        # handle all drones not yet stacked (or drones that were previously stacked but stack moved)
-        for drone in filter(lambda x: x not in on_stack_location, self.get_my_living_drones(player)):
-            move_ops = self.get_move_options_towards(drone,self._stack_location)
-            self.make_move(drone, random.choice(move_ops))
+        for drone in self.get_my_living_drones(player):
+            poss_moves = self.get_move_options(drone, drone.get_max_speed())
+            move = random.choice(poss_moves)
+            self.make_move(drone, move)
             # handle drones scoring points
-            if drone.distance(self.get_my_cities(player)[0]) < self._unload_range:
+            if drone.get_type() == DRONE and drone.distance(self.get_my_cities(player)[0]) < self._unload_range:
                 if player == MY_TEAM:
                     self._player0_score += 1
                 else:
@@ -474,10 +455,6 @@ class Board:
         give all aircrafts one random legal order
         """
         self._actions = []  # get rid of last turn's actions
-        if random.random() < 0.5:  # 50% chance to change stack  location
-            ops = self._stack_options[:]
-            ops.remove(self._stack_location)
-            self._stack_location = random.choice(ops)
         self._handle_pirates(player)
         self._handle_drones(player)
         self._check_island_ownership(player)
@@ -498,51 +475,28 @@ class Board:
     def get_actions(self):
         return self._actions
 
-    def get_move_options(self, aircraft):
+    def get_move_options(self, aircraft, max_distance):
         """
-        returns all the locations aircraft can move to
+        returns all the location pirate can move to
         :param aircraft: aircraft to get move options
         :type aircraft: MyAircraft
+        :param max_distance: the max distance the aircraft can move
         :return: all possible legal moves
-        :rtype: list[Location]
+        :rtype: List[Location]
         """
         aircraft_loc = aircraft.get_location()
         row = aircraft_loc.row
         col = aircraft_loc.col
-        max_distance = aircraft.get_max_speed()
         options = []
-
-        for i in range(max_distance+1):
-            options.append(Location(row + i, col + (max_distance - i)))
-            options.append(Location(row - i, col - (max_distance - i)))
-            if i != 0 and i != max_distance:
-                options.append(Location(row + i, col - (max_distance - i)))
-                options.append(Location(row - i, col + (max_distance - i)))
-
-        for loc in options[:]:
-            if loc.row < 0 or loc.row >= self._rows:
-                options.remove(loc)
-                continue
-            if loc.col < 0 or loc.col >= self._cols:
-                options.remove(loc)
-
-        return options
-
-    def get_stack_options(self, city, distance):
-        """
-        gets all the location the drone can stack in (i.e. in distance of "stack_dist" from it"
-        :param city: city to find stack options
-        :type city: MapLocation
-        :param distance: distance around city to stack
-        :type distance: int
-        :return: list of all stack options
-        :rtype list[Location]
-        """
-        loc = city.get_location()
-        row = loc.row
-        col = loc.col
-        options = [Location(row, col + distance), Location(row, col - distance),
-                   Location(row - distance, col), Location(row + distance, col)]
+        if max_distance == 1:
+            options = [Location(row - 1, col), Location(row + 1, col), Location(row, col - 1),
+                       Location(row, col + 1)]  # distance of 1
+        if max_distance == 2:
+            options.extend(
+                [Location(row - 2, col), Location(row + 2, col), Location(row, col + 2),
+                 Location(row, col - 2)])  # within straight distance of 2
+            options.extend([Location(row - 1, col - 1), Location(row + 1, col - 1),
+                            Location(row - 1, col + 1), Location(row - 1, col - 1)])
 
         for loc in options[:]:
             if loc.row < 0 or loc.row >= self._rows:
@@ -550,48 +504,7 @@ class Board:
                 continue
             if loc.col < 0 or loc.col >= self._cols:
                 options.remove(loc)
-
         return options
-
-    def get_move_options_towards(self, aircraft, destination):
-        """
-        gets all the move options that get me closer to destination
-        :param aircraft: aircraft to get move options
-        :type aircraft: MyAircraft
-        :param destination: where we want to go
-        :type destination: MapLocation
-        :return: list of all move options that get me close to destination
-        :rtype list[Location]
-        """
-        ops = self.get_move_options(aircraft)
-        current_distance = aircraft.distance(destination)
-        closer_ops = filter(lambda x: destination.distance(x) < current_distance, ops)
-        if len(closer_ops) == 0:
-            closer_ops = [Location(aircraft.get_location().row,aircraft.get_location().col)]
-        return closer_ops
-
-    def get_my_drones_on(self, point, player):
-        """
-        gets all friendly drones on a certain point
-        :param point: point to get all friendly drones on
-        :type point: Location
-        :param player: who am i
-        :type player: int
-        :return: list of all friendly drones on point
-        :rtype: list[MyAircraft]
-        """
-        return filter(lambda  x: x.get_location() == point, self.get_my_living_drones(player))
-
-    def _adjust_stack(self, player):
-        city = self.get_my_cities(player)[0]
-        if self._stack_location != city.get_location():
-            self._stack_options = self.get_stack_options(city, self._stack_location.distance(city.get_location()) - 1)
-            self._stack_location = random.choice(self._stack_options)
-        else:
-            self._stack_options = self.get_stack_options(city, stack_dist)
-            self._stack_location = random.choice(self._stack_options)  # reset stack location
-        return
-
 
 # Constants and global variables
 num_of_one_turn_trials = 25  # number of trials
@@ -599,7 +512,6 @@ num_of_mult_turn_trials = 12
 num_of_best_boards = 5
 turns = 2  # number of turns per trial
 min_drone_wait_num = 15
-stack_dist = 7
 
 
 # Function Definitions
@@ -626,9 +538,9 @@ def choose_best_board(scores, boards):
     """
     finds the best score in scores and returns the corresponding board
     :param scores: list of averge scores of all boards tried
-    :type scores: list[int]
+    :type scores: List[int]
     :param boards: list of all boards
-    :type boards: list[Board]
+    :type boards: List[Board]
     :return: the best board
     :rtype: Board
     """
@@ -681,11 +593,11 @@ def choose_n_best_boards(boards, n):
     """
     returns the best n moves
     :param boards: a list of all moves we made
-    :type boards: list[Board]
+    :type boards: List[Board]
     :param n: number of boards to choose
     :type n: int
     :return: the n best boards
-    :rtype: list[Board]
+    :rtype: List[Board]
     """
     i = n
     scores = map(lambda x: x.score_game(MY_TEAM), boards)
@@ -703,7 +615,7 @@ def average(lst):
     """
     computes the average of the list lst
     :param lst: list to compute average
-    :type lst: list[]
+    :type lst: List[]
     :return: the average of the list
     :rtype int
     """
