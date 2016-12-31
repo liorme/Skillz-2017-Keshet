@@ -41,14 +41,27 @@ class Action:
 
 class MyAircraft:
 
-    def __init__(self, type, location, id, team, max_health, max_move, attack_range):
+    def __init__(self, aircraft, type, team, max_respawn):
+        """
+
+        :param self:
+        :param aircraft:
+        :type aircraft: Aircraft
+        :return:
+        """
         self._type = type
-        self._location = clone_location(location)
-        self._id = id
+        self._location = clone_location(aircraft.get_location())
+        self._id = aircraft.id
         self._team = team
-        self._health = max_health
-        self._attack_range = attack_range
-        self._max_move = max_move
+        self._health = aircraft.current_health
+        self._attack_range = 0
+        self._max_move = aircraft.max_speed
+        self._respawn_time = 0
+        self._max_respawn_time = max_respawn
+        if type == PIRATE:
+            self._attack_range = aircraft.attack_range
+            self._respawn_time = aircraft.turns_to_revive
+            self._max_respawn_time = max_respawn
 
     def get_id(self):
         return self._id
@@ -97,6 +110,18 @@ class MyAircraft:
     def get_attack_range(self):
         return self._attack_range
 
+    def is_alive(self):
+        return self._respawn_time == 0
+
+    def get_respawn_time(self):
+        return self._respawn_time
+
+    def set_respawn_time(self, new_respawn):
+        self._respawn_time = new_respawn
+
+    def mark_dead(self):
+        self._respawn_time = self._max_respawn_time
+
 
 class MapLocation:
 
@@ -137,23 +162,17 @@ class Board:
         self._unload_range = game.get_unload_range()
         self._control_range = game.get_control_range()
 
-        for pirate in game.get_my_living_pirates():
-            self._player0_pirate_list.append(MyAircraft(PIRATE, pirate.get_location(), pirate.id, MY_TEAM,
-                                                        game.get_pirate_max_health(), pirate.max_speed,
-                                                        pirate.attack_range))
+        for pirate in game.get_all_my_pirates():
+            self._player0_pirate_list.append(MyAircraft(pirate, PIRATE, MY_TEAM, game.get_spawn_turns()))
 
-        for pirate in game.get_enemy_living_pirates():
-            self._player1_pirate_list.append(MyAircraft(PIRATE, pirate.get_location(), pirate.id, ENEMY_TEAM,
-                                                        game.get_pirate_max_health(), pirate.max_speed,
-                                                        pirate.attack_range))
+        for pirate in game.get_all_enemy_pirates():
+            self._player1_pirate_list.append(MyAircraft(pirate, PIRATE, ENEMY_TEAM, game.get_spawn_turns()))
 
         for drone in game.get_my_living_drones():
-            self._player0_drone_list.append(MyAircraft(DRONE, drone.get_location(), drone.id, MY_TEAM,
-                                                       game.get_drone_max_health(), drone.max_speed, 0))
+            self._player0_drone_list.append(MyAircraft(drone, DRONE, MY_TEAM, 0))
 
         for drone in game.get_enemy_living_drones():
-            self._player1_drone_list.append(MyAircraft(DRONE, drone.get_location(), drone.id, ENEMY_TEAM,
-                                                       game.get_drone_max_health(), drone.max_speed, 0))
+            self._player1_drone_list.append(MyAircraft(drone, DRONE, ENEMY_TEAM, 0))
 
         for island in game.get_my_islands():
             self._island_list.append(MapLocation(ISLAND, island.get_location(), island.id, MY_TEAM))
@@ -189,7 +208,7 @@ class Board:
         """
 
         score = 0
-        score += 100 * (self.get_my_score(player) - self.get_enemy_score(player))
+        score += 1000 * (self.get_my_score(player) - self.get_enemy_score(player))
 
         # Score takes into consideration the HP difference
         my_total_hp = sum([pirate.get_health() for pirate in self.get_my_living_pirates(player)])
@@ -197,20 +216,21 @@ class Board:
         score += 0.8 * (my_total_hp - enemy_total_hp)
 
         # Score takes into consideration the dif between num of islands
-        score += 14 * len(self.get_my_islands(player)) - 3*len(self.get_enemy_islands(player))
+        score += 500 * len(self.get_my_islands(player)) - 3*len(self.get_enemy_islands(player))
 
-        # Score takes into cosideration the dif between num of drones:
-        score += 2 * (len(self.get_my_living_drones(player)) - 2*len(self.get_enemy_living_drones(player)))
+        # Score takes into consideration the dif between num of drones:
+        score += 2 * (len(self.get_my_living_drones(player)) - len(self.get_enemy_living_drones(player)))
 
         # Score takes into consideration the average distance between my drone and my city
         if len(self.get_my_living_drones(player)) > 0:
             my_drone_to_city_distances = [drone.distance(self.get_my_cities(player)[0]) for drone in
                                           self.get_my_living_drones(player)]
-            score += -5 * (sum(my_drone_to_city_distances) / float(len(my_drone_to_city_distances)))
+            score += -5 * average(my_drone_to_city_distances)
+
         if len(self.get_enemy_living_drones(player)) > 0:
             enemy_drone_to_city_distances = \
                 [drone.distance(self.get_enemy_cities(player)[0]) for drone in self.get_enemy_living_drones(player)]
-            score += 1.6 * (sum(enemy_drone_to_city_distances) / float(len(enemy_drone_to_city_distances)))
+            score += 1.6 * average(enemy_drone_to_city_distances)
 
         # Score takes into consideration the average distance between my pirate and any other game object
         #  (not including my pirate and islands)
@@ -219,7 +239,7 @@ class Board:
             if len(self.get_enemy_living_drones(player)) + len(self.get_not_my_islands(player)) != 0:
                 for obj in self.get_enemy_living_drones(player) + self.get_not_my_islands(player):
                     distances.extend([pirate.distance(obj) for pirate in self.get_my_living_pirates(player)])
-                score += -0.8 * (sum(distances) / float(len(distances)))
+                score += -0.8 * average(distances)
 
         return score
 
@@ -245,10 +265,7 @@ class Board:
         target.decrease_health(1)
         self._actions.append(Action("ATTACK", who, target))
         if target.get_health() == 0:
-            if target.get_type() == DRONE:
-                self.get_my_living_drones(target.get_team()).remove(target)
-            else:
-                self.get_my_living_pirates(target.get_team()).remove(target)
+            target.mark_dead()
 
     def get_my_score(self, player):
         """
@@ -270,9 +287,29 @@ class Board:
         :return: enemy score
         :rtype int
         """
+        return self.get_my_score(switch_player(player))
+
+    def get_all_my_pirates(self, player):
+        """
+        gets all my pirates
+        :param player: who am I
+        :type player: int
+        :return: list of all my pirates
+        :rtype list[MyAircraft]
+        """
         if player == MY_TEAM:
-            return self._player1_score
-        return self._player0_score
+            return self._player0_pirate_list
+        return self._player1_pirate_list
+
+    def get_all_enemy_pirates(self, player):
+        """
+        gets all enemy pirates
+        :param player: who am I
+        :type player: int
+        :return: list of all enemy pirates
+        :rtype list[MyAircraft]
+        """
+        return self.get_all_my_pirates(switch_player(player))
 
     def get_my_living_pirates(self, player):
         """
@@ -282,9 +319,7 @@ class Board:
         :return: list of all my living pirates
         :rtype list[MyAircraft]
         """
-        if player == MY_TEAM:
-            return self._player0_pirate_list
-        return self._player1_pirate_list
+        return filter(lambda x: x.is_alive(), self.get_all_my_pirates(player))
 
     def get_enemy_living_pirates(self, player):
         """
@@ -294,9 +329,7 @@ class Board:
         :return: list of all enemy living pirates
         :rtype list[MyAircraft]
         """
-        if player == MY_TEAM:
-            return self._player1_pirate_list
-        return self._player0_pirate_list
+        return self.get_my_living_pirates(switch_player(player))
 
     def get_my_living_drones(self, player):
         """
@@ -318,9 +351,27 @@ class Board:
         :return: list of all enemy living drones
         :rtype list[MyAircraft]
         """
-        if player == MY_TEAM:
-            return self._player1_drone_list
-        return self._player0_drone_list
+        return self.get_my_living_drones(switch_player(player))
+
+    def get_my_living_aircrafts(self, player):
+        """
+        gets all my living aircrafts
+        :param player: who am I
+        :type player: int
+        :return: list of all my living aircrafts
+        :rtype list[MyAircraft]
+        """
+        return self.get_my_living_drones(player) + self.get_y_living_pirates(player)
+
+    def get_enemy_living_aircrafts(self, player):
+        """
+        gets all enemy living aircrafts
+        :param player: who am I
+        :type player: int
+        :return: list of all enemy living aircrafts
+        :rtype list[MyAircraft]
+        """
+        return self.get_my_living_aircrafts(player)
 
     def get_my_islands(self, player):
         """
@@ -362,11 +413,8 @@ class Board:
         :return: list of all enemy aircrafts in attack range
         :rtype: list[Aircraft]
         """
-        enemy_aircrafts = self.get_enemy_living_drones(player) + self.get_enemy_living_pirates(player)
-        for craft in enemy_aircrafts[:]:
-            if pirate.distance(craft) > pirate.get_attack_range():
-                enemy_aircrafts.remove(craft)
-        return enemy_aircrafts
+        return filter(lambda x: pirate.distance(x) <= pirate.get_attack_range(),
+                      self.get_enemy_living_drones(player) + self.get_enemy_living_pirates(player))
 
     def get_my_cities(self, player):
         if player == MY_TEAM:
@@ -376,6 +424,39 @@ class Board:
     def get_enemy_cities(self, player):
         return self.get_my_cities(switch_player(player))
 
+    def get_my_drone_by_id(self, team, id):
+        return filter(lambda x: x.get_id() == id, self.get_my_living_drones(team))[0]  # only one drone with this ID
+
+    def get_my_pirate_by_id(self, team, id):
+        return filter(lambda x: x.get_id() == id, self.get_all_my_pirates(team))[0]  # only one drone with this ID
+
+    def apply_actions(self, actions):
+        """
+        apply all the actions in "actions" to this board
+        :param actions:  list of actions to apply
+        :type actions: list[Action]
+        :return:
+        """
+        for act in actions:
+            if act.get_type() == "MOVE":  # it's a move
+                who = act.get_who()
+                destination = act.get_where()
+                type = who.get_type()
+                if type == DRONE:
+                    mover = self.get_my_drone_by_id(who.get_team(), who.get_id())
+                else:
+                    mover = self.get_my_pirate_by_id(who.get_team(), who.get_id())
+                self.make_move(mover, destination)
+            else:  # it's an attack
+                where = act.get_where()
+                who = act.get_who()
+                type = where.get_type()
+                if type == DRONE:
+                    target = self.get_my_drone_by_id(where.get_team(), where.get_id())
+                else:
+                    target = self.get_my_pirate_by_id(where.get_team(), where.get_id())
+                self.make_attack(self.get_my_pirate_by_id(who.get_team(), who.get_id()), target)
+
     def clone(self):
         """
         clones this board
@@ -383,20 +464,8 @@ class Board:
         :rtype Board
         """
         clone = Board(self._game)
+        clone.apply_actions(self._actions)
         return clone
-        # clone._player0_pirate_list = self._player0_pirate_list[:]
-        # clone._player1_pirate_list = self._player1_pirate_list[:]
-        # clone._player0_drone_list = self._player0_drone_list[:]
-        # clone._player1_drone_list = self._player1_drone_list[:]
-        # clone._island_list = self._island_list[:]
-        # clone._player0_city_list = self._player0_city_list[:]
-        # clone._player1_city_list = self._player1_city_list[:]
-        # clone._actions = self._actions[:]
-        # clone._player0_score = self._player0_score
-        # clone._player1_score = self._player1_score
-        # clone._rows = self._rows
-        # clone._cols = self._cols
-        # return clone
 
     def _handle_pirates(self, player):
         """
@@ -410,9 +479,9 @@ class Board:
             if r < 0.5:  # 50% chance to attack
                 can_be_attacked = self.get_all_enemy_aircrafts_in_range(pirate, player)
                 if len(can_be_attacked) > 0:  # if we can attack at least one enemy
-                    self.make_attack(pirate, random.choice(can_be_attacked))  # attack a random attackable target
+                    self.make_attack(pirate, random.choice(can_be_attacked))  # attack a random attack able target
                     attacked = True  # set flag to true - we just attacked
-            if not attacked:  # move if couldn't attack or chose not to
+            if not attacked:  # move if couldn't attack or chose not to.
                 move_ops = self.get_move_options(pirate)
                 self.make_move(pirate, random.choice(move_ops))
 
@@ -423,7 +492,7 @@ class Board:
         :type player: int
         """
         for drone in self.get_my_living_drones(player):
-            poss_moves = self.get_move_options_towards(drone,self.get_my_cities(player)[0])
+            poss_moves = self.get_move_options_towards(drone, self.get_my_cities(player)[0])
             move = random.choice(poss_moves)
             self.make_move(drone, move)
             # handle drones scoring points
@@ -455,6 +524,12 @@ class Board:
         give all aircrafts one random legal order
         """
         self._actions = []  # get rid of last turn's actions
+        # handle respawn
+        for pirate in self.get_all_my_pirates(player):  # type: MyAircraft
+            if pirate.is_alive():
+                continue
+            pirate.set_respawn_time(pirate.get_respawn_time()-1)
+            # if re-spawn time is 0 it it automatically set as alive
         self._handle_pirates(player)
         self._handle_drones(player)
         self._check_island_ownership(player)
@@ -467,9 +542,11 @@ class Board:
         :return score of board
         :rtype: int
         """
-        for i in range(2 * turns-1):  # we call this function on a board that has 1 "me" play
+        i = 2*turns-1
+        while i > 0:  # we call this function on a board that has 1 "me" play
             self.do_random_turn(player)
             player = switch_player(player)
+            i -= 1
         return self.score_game(player)  # player will change to be me after loop ends
 
     def get_actions(self):
@@ -576,22 +653,26 @@ def execute_turn(best, game):
     :type game: PirateGame
     """
     acts = best.get_actions()
-    # game.debug(len(acts))
     for act in acts:
-        if act.get_type() == "MOVE":
+        if act.get_type() == "MOVE":  # type: Action
             destination = act.get_where()
+            who = act.get_who()
             type = act.get_who().get_type()
             if type == DRONE:
-                game.set_sail(game.get_my_drone_by_id(act.get_who().get_id()), destination)
+                mover = game.get_my_drone_by_id(who.get_id())
             else:
-                game.set_sail(game.get_my_pirate_by_id(act.get_who().get_id()), destination)
+                mover = game.get_my_pirate_by_id(who.get_id())
+            game.set_sail(mover, destination)
         else:
             type = act.get_where().get_type()
+            who = act.get_who()
+            where = act.get_where()
             if type == DRONE:
-                target = game.get_enemy_drone_by_id(act.get_where().get_id())
+                target = game.get_enemy_drone_by_id(where.get_id())
             else:
-                target = game.get_enemy_pirate_by_id(act.get_where().get_id())
-            game.attack(game.get_my_pirate_by_id(act.get_who().get_id()), target)
+                target = game.get_enemy_pirate_by_id(where.get_id())
+            attacker = game.get_my_pirate_by_id(who.get_id())
+            game.attack(attacker, target)
 
 
 def make_board(game):
