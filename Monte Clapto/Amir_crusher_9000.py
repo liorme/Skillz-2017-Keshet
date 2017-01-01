@@ -6,6 +6,7 @@ Bot using Monte-Carlo simulations
 from Pirates import *
 import random
 import math
+import timeit
 
 
 # Class Definitions
@@ -20,6 +21,20 @@ CITY = 3
 MY_TEAM = 0
 ENEMY_TEAM = 1
 NEUTRAL = 2  # for islands
+
+file = open('runtimes.txt','w')
+file.close()
+functimes = []
+def timing(f):
+    def wrap(*args):
+        time1 = time.time()
+        ret = f(*args)
+        time2 = time.time()
+        file = open('runtimes.txt', 'a')
+        file.write('%s function took %0.3f ms\n' % (f.func_name, (time2-time1)*1000.0))
+        file.close()
+        return ret
+    return wrap
 
 
 class Action:
@@ -547,7 +562,7 @@ class Board:
         # handle respawn
         for pirate in self.get_all_my_pirates(player):  # type: MyAircraft
             if not pirate.is_alive():
-                pirate.set_respawn_time(pirate.get_respawn_time()-1)
+                pirate.set_respawn_time(pirate.get_respawn_time())
             # if re-spawn time is 0 it it automatically set as alive
         if player == MY_TEAM:
             self._player0_drone_list = filter(lambda x: x.is_alive(), self._player0_drone_list)
@@ -556,7 +571,7 @@ class Board:
         self._handle_pirates(player)
         self._handle_drones(player)
         self._check_island_ownership(player)
-
+    
     def run_trial(self, player):
         """
         run a game simulation of "turns" turns
@@ -627,8 +642,8 @@ class Board:
         return filter(lambda x: x.get_location() == point, self.get_my_living_drones(player))
 
 # Constants and global variables
-num_of_one_turn_trials = 25  # number of trials
-num_of_mult_turn_trials = 12
+num_of_one_turn_trials = 60  # number of trials
+num_of_mult_turn_trials = 25
 num_of_best_boards = 5
 turns = 2  # number of turns per trial
 clear_range = 4
@@ -746,7 +761,7 @@ def average(lst):
     """
     return sum(lst)/float(len(lst))
 
-
+@timing
 def do_turn(game):
     """
     Makes the bot run a single turn
@@ -762,8 +777,11 @@ def do_turn(game):
     best_one_turn = choose_n_best_boards(boards, num_of_best_boards)
     # scores = [board.score_game(MY_TEAM) for board in best_one_turn]
     scores = []
+    before = game.get_time_remaining()
+    num_of_mult_trials = (before+100) / (3 * len(best_one_turn))
+    game.debug(num_of_mult_trials)
     for b in best_one_turn:
-        b_scores = [b.clone().run_trial(ENEMY_TEAM) for i in range(num_of_mult_turn_trials)]
+        b_scores = [b.clone().run_trial(ENEMY_TEAM) for i in range(num_of_mult_trials)]
         scores.append(average(b_scores))
     best = choose_best_board(scores, best_one_turn)
     execute_turn(best, game)
