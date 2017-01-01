@@ -527,14 +527,15 @@ class Board:
         """
         give all aircrafts one random legal order
         """
-        self._actions = []  # get rid of last turn's actions
         # handle respawn
         for pirate in self.get_all_my_pirates(player):  # type: MyAircraft
             if not pirate.is_alive():
                 pirate.set_respawn_time(pirate.get_respawn_time()-1)
             # if re-spawn time is 0 it it automatically set as alive
-        drones = self.get_my_living_drones(player)
-        drones = filter(lambda x: x.is_alive(), self.get_my_living_drones(player))
+        if player == MY_TEAM:
+            self._player0_drone_list = filter(lambda x: x.is_alive(), self._player0_drone_list)
+        else:
+            self._player1_drone_list = filter(lambda x: x.is_alive(), self._player1_drone_list)
         self._handle_pirates(player)
         self._handle_drones(player)
         self._check_island_ownership(player)
