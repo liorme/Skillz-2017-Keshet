@@ -122,7 +122,7 @@ class MyAircraft:
         self._respawn_time = new_respawn
         if self._respawn_time == 0:
             self._location = clone_location(self._aircraft.initial_location)
-            actions.append("RESPAWN", self, self._aircraft.initial_location)
+            actions.append(Action("RESPAWN", self, self._aircraft.initial_location))
 
 
 class MapLocation:
@@ -468,6 +468,7 @@ class Board:
         """
         clone = Board(self._game)
         clone.apply_actions(self._actions)
+        clone._handle_respawn(MY_TEAM)
         return clone
 
     def is_my_city_clear(self, player):
@@ -547,17 +548,19 @@ class Board:
         """
         give all aircrafts one random legal order
         """
+        self._handle_respawn(player)
+        self._handle_pirates(player)
+        self._handle_drones(player)
+        self._check_island_ownership(player)
+
+    def _handle_respawn(self, player):
         if player == MY_TEAM:
             self._player0_drone_list = filter(lambda x: x.is_alive(), self._player0_drone_list)
         else:
             self._player1_drone_list = filter(lambda x: x.is_alive(), self._player1_drone_list)
-        self._handle_pirates(player)
-        self._handle_drones(player)
-        self._check_island_ownership(player)
-        # handle respawn
         for pirate in self.get_all_my_pirates(player):  # type: MyAircraft
             if not pirate.is_alive():
-                pirate.set_respawn_time(pirate.get_respawn_time(), self._actions)
+                pirate.set_respawn_time(pirate.get_respawn_time()-1, self._actions)
             # if re-spawn time is 0 it it automatically set as alive
 
     def run_trial(self, player):
@@ -693,7 +696,7 @@ def execute_turn(best, game):
             else:
                 mover = game.get_my_pirate_by_id(who.get_id())
             game.set_sail(mover, destination)
-        else:
+        elif act.get_type() == "ATTACK":
             type = act.get_where().get_type()
             who = act.get_who()
             where = act.get_where()
