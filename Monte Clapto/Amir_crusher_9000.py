@@ -198,6 +198,8 @@ class Board:
         self._rows = game.get_row_count()
         self._cols = game.get_col_count()
         self._actions = []
+        city_loc = self._player0_city_list[0].get_location()
+        self._stack = Location(city_loc.row - 5, city_loc.col + 2)
 
     def score_game(self, player):
         """
@@ -226,12 +228,6 @@ class Board:
 
         # Score takes into consideration the dif between num of drones:
         score += 2 * (len(self.get_my_living_drones(player)) - len(self.get_enemy_living_drones(player)))
-
-        # Score takes into consideration the average distance between my drone and my city
-        if len(self.get_my_living_drones(player)) > 0:
-            my_drone_to_city_distances = [drone.distance(self.get_my_cities(player)[0]) for drone in
-                                          self.get_my_living_drones(player)]
-            score += -5 * average(my_drone_to_city_distances)
 
         if len(self.get_enemy_living_drones(player)) > 0:
             enemy_drone_to_city_distances = \
@@ -471,6 +467,20 @@ class Board:
         clone.apply_actions(self._actions)
         return clone
 
+    def is_my_city_clear(self, player):
+        """
+        check if an enemy pirate is near my city
+        :param player: who am I
+        :type player: int
+        :return: whether my city is clear or not
+        :rtype bool
+        """
+        city = self.get_my_cities(player)[0]
+        for pirate in self.get_enemy_living_pirates(player): # type: MyAircraft
+            if pirate.distance(city) <= clear_range:
+                return False
+        return True
+
     def _handle_pirates(self, player):
         """
         give all pirates one random legal order
@@ -495,8 +505,15 @@ class Board:
         :param player: who am i
         :type player: int
         """
+        if self.is_my_city_clear(player) or len(self.get_my_drones_on(player, self._stack)) >= min_stack_wait:
+            # send drones to city
+            destination = self.get_my_cities(player)[0]
+        else:
+            # send drones to stack location
+            destination = self._stack
+
         for drone in self.get_my_living_drones(player):
-            poss_moves = self.get_move_options_towards(drone, self.get_my_cities(player)[0])
+            poss_moves = self.get_move_options_towards(drone, destination)
             move = random.choice(poss_moves)
             self.make_move(drone, move)
             # handle drones scoring points
@@ -606,12 +623,16 @@ class Board:
             closer_ops = [Location(aircraft.get_location().row, aircraft.get_location().col)]
         return closer_ops
 
+    def get_my_drones_on(self, player, point):
+        return filter(lambda x: x.get_location() == point, self.get_my_living_drones(player))
+
 # Constants and global variables
 num_of_one_turn_trials = 25  # number of trials
 num_of_mult_turn_trials = 12
 num_of_best_boards = 5
 turns = 2  # number of turns per trial
-min_drone_wait_num = 15
+clear_range = 4
+min_stack_wait = 15
 
 
 # Function Definitions
