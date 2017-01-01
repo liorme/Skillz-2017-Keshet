@@ -22,20 +22,6 @@ MY_TEAM = 0
 ENEMY_TEAM = 1
 NEUTRAL = 2  # for islands
 
-file = open('runtimes.txt','w')
-file.close()
-functimes = []
-def timing(f):
-    def wrap(*args):
-        time1 = time.time()
-        ret = f(*args)
-        time2 = time.time()
-        file = open('runtimes.txt', 'a')
-        file.write('%s function took %0.3f ms\n' % (f.func_name, (time2-time1)*1000.0))
-        file.close()
-        return ret
-    return wrap
-
 
 class Action:
 
@@ -70,14 +56,11 @@ class MyAircraft:
         self._team = team
         self._health = aircraft.current_health
         self._max_health = max_health
-        self._attack_range = 0
-        self._max_move = aircraft.max_speed
-        self._respawn_time = 0
         self._max_respawn_time = max_respawn
+        self._aircraft = aircraft
+        self._respawn_time = 0
         if type == PIRATE:
-            self._attack_range = aircraft.attack_range
             self._respawn_time = aircraft.turns_to_revive
-            self._max_respawn_time = max_respawn
 
     def get_id(self):
         return self._id
@@ -124,10 +107,10 @@ class MyAircraft:
         return d_row + d_col
 
     def get_max_speed(self):
-        return self._max_move
+        return self._aircraft.max_speed
 
     def get_attack_range(self):
-        return self._attack_range
+        return self._aircraft.attack_range
 
     def is_alive(self):
         return self._respawn_time == 0
@@ -135,8 +118,11 @@ class MyAircraft:
     def get_respawn_time(self):
         return self._respawn_time
 
-    def set_respawn_time(self, new_respawn):
+    def set_respawn_time(self, new_respawn, actions):
         self._respawn_time = new_respawn
+        if self._respawn_time == 0:
+            self._location = clone_location(self._aircraft.initial_location)
+            actions.append("RESPAWN", self, self._aircraft.initial_location)
 
 
 class MapLocation:
@@ -184,10 +170,12 @@ class Board:
         self._control_range = game.get_control_range()
 
         for pirate in game.get_all_my_pirates():
-            self._player0_pirate_list.append(MyAircraft(pirate, PIRATE, MY_TEAM, game.get_spawn_turns(), game.get_pirate_max_health()))
+            self._player0_pirate_list.append(MyAircraft(pirate, PIRATE, MY_TEAM, game.get_spawn_turns(),
+                                                        game.get_pirate_max_health()))
 
         for pirate in game.get_all_enemy_pirates():
-            self._player1_pirate_list.append(MyAircraft(pirate, PIRATE, ENEMY_TEAM, game.get_spawn_turns(), game.get_pirate_max_health()))
+            self._player1_pirate_list.append(MyAircraft(pirate, PIRATE, ENEMY_TEAM, game.get_spawn_turns(),
+                                                        game.get_pirate_max_health()))
 
         for drone in game.get_my_living_drones():
             self._player0_drone_list.append(MyAircraft(drone, DRONE, MY_TEAM, 0, game.get_drone_max_health()))
@@ -453,7 +441,7 @@ class Board:
         :return:
         """
         for act in actions:
-            if act.get_type() == "MOVE":  # it's a move
+            if act.get_type() == "MOVE" or act.get_type() == "RESPAWN":  # it's a move or a pirate respawn-ed last turn
                 who = act.get_who()
                 destination = act.get_where()
                 type = who.get_type()
@@ -491,7 +479,7 @@ class Board:
         :rtype bool
         """
         city = self.get_my_cities(player)[0]
-        for pirate in self.get_enemy_living_pirates(player): # type: MyAircraft
+        for pirate in self.get_enemy_living_pirates(player):  # type: MyAircraft
             if pirate.distance(city) <= clear_range:
                 return False
         return True
@@ -559,11 +547,6 @@ class Board:
         """
         give all aircrafts one random legal order
         """
-        # handle respawn
-        for pirate in self.get_all_my_pirates(player):  # type: MyAircraft
-            if not pirate.is_alive():
-                pirate.set_respawn_time(pirate.get_respawn_time())
-            # if re-spawn time is 0 it it automatically set as alive
         if player == MY_TEAM:
             self._player0_drone_list = filter(lambda x: x.is_alive(), self._player0_drone_list)
         else:
@@ -571,7 +554,12 @@ class Board:
         self._handle_pirates(player)
         self._handle_drones(player)
         self._check_island_ownership(player)
-    
+        # handle respawn
+        for pirate in self.get_all_my_pirates(player):  # type: MyAircraft
+            if not pirate.is_alive():
+                pirate.set_respawn_time(pirate.get_respawn_time(), self._actions)
+            # if re-spawn time is 0 it it automatically set as alive
+
     def run_trial(self, player):
         """
         run a game simulation of "turns" turns
@@ -761,7 +749,7 @@ def average(lst):
     """
     return sum(lst)/float(len(lst))
 
-@timing
+
 def do_turn(game):
     """
     Makes the bot run a single turn
