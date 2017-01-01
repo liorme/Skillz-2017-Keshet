@@ -41,7 +41,7 @@ class Action:
 
 class MyAircraft:
 
-    def __init__(self, aircraft, type, team, max_respawn):
+    def __init__(self, aircraft, type, team, max_respawn, max_health):
         """
 
         :param self:
@@ -54,6 +54,7 @@ class MyAircraft:
         self._id = aircraft.id
         self._team = team
         self._health = aircraft.current_health
+        self._max_health = max_health
         self._attack_range = 0
         self._max_move = aircraft.max_speed
         self._respawn_time = 0
@@ -88,6 +89,9 @@ class MyAircraft:
 
     def decrease_health(self, n):
         self._health -= n
+        if self._health <= 0:  # handle deaths
+            self._health = self._max_health
+            self._respawn_time = self._max_respawn_time
 
     def distance(self, other):
         """
@@ -119,9 +123,6 @@ class MyAircraft:
     def set_respawn_time(self, new_respawn):
         self._respawn_time = new_respawn
 
-    def mark_dead(self):
-        self._respawn_time = self._max_respawn_time
-
 
 class MapLocation:
 
@@ -150,6 +151,11 @@ class MapLocation:
 class Board:
 
     def __init__(self, game):
+        """
+
+        :param game:
+         :type game: PirateGame
+        """
         self._player0_pirate_list = []
         self._player0_drone_list = []
         self._player1_pirate_list = []
@@ -163,16 +169,16 @@ class Board:
         self._control_range = game.get_control_range()
 
         for pirate in game.get_all_my_pirates():
-            self._player0_pirate_list.append(MyAircraft(pirate, PIRATE, MY_TEAM, game.get_spawn_turns()))
+            self._player0_pirate_list.append(MyAircraft(pirate, PIRATE, MY_TEAM, game.get_spawn_turns(), game.get_pirate_max_health()))
 
         for pirate in game.get_all_enemy_pirates():
-            self._player1_pirate_list.append(MyAircraft(pirate, PIRATE, ENEMY_TEAM, game.get_spawn_turns()))
+            self._player1_pirate_list.append(MyAircraft(pirate, PIRATE, ENEMY_TEAM, game.get_spawn_turns(), game.get_pirate_max_health()))
 
         for drone in game.get_my_living_drones():
-            self._player0_drone_list.append(MyAircraft(drone, DRONE, MY_TEAM, 0))
+            self._player0_drone_list.append(MyAircraft(drone, DRONE, MY_TEAM, 0, game.get_drone_max_health()))
 
         for drone in game.get_enemy_living_drones():
-            self._player1_drone_list.append(MyAircraft(drone, DRONE, ENEMY_TEAM, 0))
+            self._player1_drone_list.append(MyAircraft(drone, DRONE, ENEMY_TEAM, 0, game.get_drone_max_health()))
 
         for island in game.get_my_islands():
             self._island_list.append(MapLocation(ISLAND, island.get_location(), island.id, MY_TEAM))
@@ -264,8 +270,6 @@ class Board:
         """
         target.decrease_health(1)
         self._actions.append(Action("ATTACK", who, target))
-        if target.get_health() == 0:
-            target.mark_dead()
 
     def get_my_score(self, player):
         """
@@ -526,10 +530,11 @@ class Board:
         self._actions = []  # get rid of last turn's actions
         # handle respawn
         for pirate in self.get_all_my_pirates(player):  # type: MyAircraft
-            if pirate.is_alive():
-                continue
-            pirate.set_respawn_time(pirate.get_respawn_time()-1)
+            if not pirate.is_alive():
+                pirate.set_respawn_time(pirate.get_respawn_time()-1)
             # if re-spawn time is 0 it it automatically set as alive
+        drones = self.get_my_living_drones(player)
+        drones = filter(lambda x: x.is_alive(), self.get_my_living_drones(player))
         self._handle_pirates(player)
         self._handle_drones(player)
         self._check_island_ownership(player)
