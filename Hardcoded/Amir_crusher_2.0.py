@@ -21,13 +21,17 @@ def do_turn(game):
     # Give orders to my pirates
     my_city_loc = game.get_my_cities()[0].location
     global stack_point
+    if game.get_turn_count() < 20:
+        state = "EARLY"
+    else:
+        state = "MID"
     stack_point = Location(my_city_loc.row + 5, my_city_loc.col - 2)
-    handle_pirates(game)
+    handle_pirates(game, state)
     # Give orders to my drones
-    handle_drones(game)
+    handle_drones(game, state)
 
 
-def handle_pirates(game):
+def handle_pirates(game, state):
     """
     Gives orders to my pirates
 
@@ -36,13 +40,19 @@ def handle_pirates(game):
     """
     # Go over all of my pirate
     enemy_city = game.get_enemy_cities()[0]
-    islands_to_take = game.get_not_my_islands()
+    island = game.get_not_my_islands()
+	drones = game.get_enemy_living_drones()
     for pirate in game.get_my_living_pirates():
-        if not try_attack(pirate, game):
-            destination = find_closest_island(pirate, islands_to_take)
-            if destination is None:  # TODO find better option
-                destination = enemy_city
-            move_ops = get_move_options_towards(pirate, destination.location, game.get_pirate_max_speed(), game)
+        if state == "EARLY":
+            if not try_attack(pirate, game):
+                destination = find_closest_island(pirate, islands_to_take)
+                if destination is None:  # TODO find better option
+                    destination = Location(game.get_row_count()/2,game.get_col_count()/2)
+			else:
+				destination = find_closest_island(pirate, drones)
+				if destination is None:
+					destination = Location(game.get_row_count()/2,game.get_col_count()/2)
+            move_ops = game.get_sail_options(pirate, destination)
             game.set_sail(pirate, random.choice(move_ops))
 
 
@@ -81,39 +91,6 @@ def is_my_city_clear(game):
     return True
 
 
-def get_move_options_towards(aircraft, destination, max_speed, game):
-    """
-    gets all move options that get aircraft closer to destination
-    :param aircraft: aircraft to move
-    :type aircraft: Aircraft
-    :param destination: where we want to go
-    :type destination: MapObject
-    :param max_speed: how far can aircraft go
-    :type max_speed: int
-    :param game: current game state
-    :type game: PirateGame
-    :return: list of all moves that get me closer to destination
-    :rtype list[Location]
-    """
-    aircraft_loc = aircraft.location
-    row = aircraft_loc.row
-    col = aircraft_loc.col
-    options = []
-    for i in range(max_speed + 1):
-        options.append(Location(row + i, col + (max_speed - i)))
-        options.append(Location(row - i, col - (max_speed - i)))
-        if i != 0 and i != max_speed:
-            options.append(Location(row + i, col - (max_speed - i)))
-            options.append(Location(row - i, col + (max_speed - i)))
-
-    options = filter(lambda x: 0 <= x.row < game.get_row_count() and 0 <= x.col < game.get_col_count(), options)
-    current_distance = aircraft.distance(destination)
-    closer_ops = filter(lambda x: destination.distance(x) < current_distance, options)
-    if len(closer_ops) == 0:
-        closer_ops = [aircraft_loc]  # if can't get closer stay in place
-    return closer_ops
-
-
 def handle_drones(game):
     """
     Gives orders to my drones
@@ -123,7 +100,7 @@ def handle_drones(game):
     """
     drones_stacked = filter(lambda x: x.type == "drone" and x.owner == game.get_myself(),
                             game.get_aircrafts_on(stack_point))
-
+    
     if is_my_city_clear(game) or len(drones_stacked) >= min_drone_stack:
         # send drones to city
         destination = game.get_my_cities()[0].location
@@ -132,7 +109,7 @@ def handle_drones(game):
         destination = stack_point
 
     for drone in game.get_my_living_drones():
-        poss_moves = get_move_options_towards(drone, destination, game.get_drone_max_speed(), game)
+        poss_moves = game.get_sail_options(drone, destination)
         move = random.choice(poss_moves)
         game.set_sail(drone, move)
 
