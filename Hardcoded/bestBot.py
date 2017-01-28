@@ -468,6 +468,7 @@ def optimize_pirate_moves(game, pirate, enemy_drones_board, destination):
         for row in xrange(min(option.row, destination.row), max(option.row, destination.row) + 1):
             for col in xrange(min(option.col, destination.col), max(option.col, destination.col) + 1):
                 option_value += enemy_drones_board[row,col]
+        option_value -= math.hypot(option.row-23,option.col-23)
         if option_value > max_value:
             max_value = option_value
             best_option = option
