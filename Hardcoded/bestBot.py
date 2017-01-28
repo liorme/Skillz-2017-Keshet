@@ -33,12 +33,31 @@ class Battle:
 
 battles = []
 ave_destination = Location(0, 23)
-
+enemy_drones_board = {}
+empty_tiles = {}
+for row in xrange(1, 47):
+    for col in xrange(1, 47):
+        enemy_drones_board[row,col] = 0
+        empty_tiles[row,col] = True
 
 def do_turn(game):
     global battles
     global game_state
     global ave_destination
+    global enemy_drones_board
+    global empty_tiles
+
+    #updating the memory board
+    for tile in empty_tiles:
+        enemy_drones_board[tile] *= 0.99
+    enemy_drones = game.get_enemy_living_drones()
+    for drone in enemy_drones:
+        enemy_drones_board[drone.location.row,drone.location.col] += 1
+        tile = (drone.location.row,drone.location.col)
+        if empty_tiles[tile]:
+            empty_tiles[tile] = False
+
+    #chosing the game state
     if game.get_turn() < 17:
         game_state = "EARLY"
     elif (len(
@@ -440,5 +459,16 @@ def turns_remaining_to_battle(battle):
     return battle
 
 
-def update_location_pirate(battle, all_pirates, game):
-    pass
+def optimize_pirate_moves(game, pirate, enemy_drones_board, destination):
+    sail_options = game.get_sail_options(pirate, destination)
+    max_value = -1
+    best_option = None
+    for option in sail_options:
+        option_value = 0
+        for row in xrange(min(option.row, destination.row), max(option.row, destination.row) + 1):
+            for col in xrange(min(option.col, destination.col), max(option.col, destination.col) + 1):
+                option_value += enemy_drones_board[row,col]
+        if option_value > max_value:
+            max_value = option_value
+            best_option = option
+    return best_option
