@@ -149,25 +149,35 @@ def handle_pirates(game, game_state, battles):
 
             # Defend an island if an enemy is close and you can intercept him
             elif defend_islands == 0 and len(my_islands) > 0:
-                best_blocking_pirate_move = [None, None, sys.maxint]
+                best_blocking_pirate_move = [None, None, sys.maxint, None]
                 for enemy_pirate in enemy_pirates:
                     enemy_bm = best_move([enemy_pirate], my_islands)
+                    enemy_next_turn = game.get_sail_options(enemy_pirate, enemy_bm[1])[0]
                     if enemy_bm[2] < 10:
                         min_dist = sys.maxint
                         blocking_pirate = None
+                        # find closest pirate
                         for pirate in pirates:
                             if pirate.distance(enemy_bm[1]) < enemy_bm[2] and pirate.distance(enemy_pirate) < min_dist:
+                                # will die while trying to kill enemy pirate
+                                if enemy_health[enemy_pirate] > pirate.current_health:
+                                    continue
                                 min_dist = pirate.distance(enemy_pirate)
                                 blocking_pirate = pirate
                         if blocking_pirate != None:
                             if blocking_pirate.distance(enemy_pirate) < best_blocking_pirate_move[2]:
                                 best_blocking_pirate_move = [blocking_pirate, enemy_pirate,
-                                                             blocking_pirate.distance(enemy_pirate)]
+                                                             blocking_pirate.distance(enemy_pirate),
+                                                             enemy_bm[1]]
 
                 if best_blocking_pirate_move[0] != None:
                     sail_options = game.get_sail_options(best_blocking_pirate_move[0], best_blocking_pirate_move[1])
                     game.set_sail(best_blocking_pirate_move[0], sail_options[(len(sail_options) / 2)])
                     pirates.remove(best_blocking_pirate_move[0])
+                    game.debug("ISLAND DEFENDED:")
+                    game.debug("My Pirate "+str(best_blocking_pirate_move[0]))
+                    game.debug("Enemy pirate: "+str(best_blocking_pirate_move[1]))
+                    game.debug("Island defended: "+str(best_blocking_pirate_move[3]))
                 defend_islands += 1
 
                 """
