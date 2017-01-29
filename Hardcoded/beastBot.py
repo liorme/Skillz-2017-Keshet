@@ -162,6 +162,8 @@ def handle_pirates(game, game_state, battles):
             # Defend the point where the drones stack if an enemy is near it
             if protect_drones == 0:
                 for enemy in enemy_pirates:
+                    if len(pirates) == 0:
+                        break
                     if enemy.distance(ave_destination) < 10:
                         move = best_move(pirates, [enemy])
                         sailing = optimize_pirate_moves(game, move[0], move[1].location)
@@ -173,6 +175,8 @@ def handle_pirates(game, game_state, battles):
             elif defend_islands == 0 and len(my_islands) > 0:
                 best_blocking_pirate_move = [None, None, 9999999, None]
                 for enemy_pirate in enemy_pirates:
+                    if len(pirates) == 0:
+                        break
                     enemy_bm = best_move([enemy_pirate], my_islands)
                     enemy_options = game.get_sail_options(enemy_pirate, enemy_bm[1])
                     enemy_next_move = enemy_options[len(enemy_options)/2]
