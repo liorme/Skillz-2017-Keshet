@@ -32,8 +32,10 @@ class Battle:
 
 battles = []
 ave_destination = Location(0, 23)
-enemy_drones_board = {}
-full_tiles = []
+enemy_drones_board = {} #dictionary of all places in the board through which an enemy drone has passed.
+                        # places in which no drone has passed aren't in the dictionary
+full_tiles = [] #list of keys of enemy_drones_board
+#prefill enemy_drones_board
 for row in xrange(0, 47):
     for col in xrange(0, 47):
         enemy_drones_board[(row,col)] = 0
@@ -46,15 +48,17 @@ def do_turn(game):
     global full_tiles
 
     #updating the memory board
-    game.debug(full_tiles)
-    for tile in full_tiles:
+    for tile in full_tiles: #decrease effect of drone pass over time.
         enemy_drones_board[tile] *= 0.99
+
+    #add current drone states to enemy_drones_board
     enemy_drones = game.get_enemy_living_drones()
     for drone in enemy_drones:
         enemy_drones_board[(drone.location.row,drone.location.col)] += 1
         tile = (drone.location.row,drone.location.col)
         if not tile in full_tiles:
             full_tiles += [tile]
+
     #chosing the game state
     if game.get_turn() < 17:
         game_state = "EARLY"
@@ -460,6 +464,17 @@ def turns_remaining_to_battle(battle):
 
 
 def optimize_pirate_moves(game, pirate, destination):
+    """
+    Returns the move currently needed to move pirate toward destination, while going through
+    the area most likely to contain drones (according to past drone behaivor).
+    This function is used to make a move toward a destination (island, enemy pirate,..) more likely
+    to bring the pirate close to drones, while not straying out of the path.
+
+    :param game: pirate game
+    :param pirate: pirate that wants to move
+    :param destination: target of pirate
+    :return: best_option - sailing option (one of the options returned by get_sail_options)
+    """
     global enemy_drones_board
     sail_options = game.get_sail_options(pirate, destination)
     max_value = -100
