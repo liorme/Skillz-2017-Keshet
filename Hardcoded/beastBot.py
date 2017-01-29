@@ -29,28 +29,32 @@ class Battle:
         self._enemy_pirates = enemy_pirates
         self._location_pirate = location_pirate
 
-
+range3 = [(3,0),(2,-1),(2,0),(2,1),(1,-2),(1,-1),(1,0),(1,1),(1,2),(0,-3),(0,-2),(0,-1),(0,0),(0,1),(0,2),(0,3),(-1,-2),(-1,-1),(-1,0),(-1,1),(-1,2),(-2,-1),(-2,0),(-2,1),(-3,0)]
 battles = []
 ave_destination = Location(0, 23)
 enemy_drones_board = {} #dictionary of all places in the board through which an enemy drone has passed.
-                        # places in which no drone has passed aren't in the dictionary
+danger_board = {}# places in which no drone has passed aren't in the dictionary
 full_tiles = [] #list of keys of enemy_drones_board
 #prefill enemy_drones_board
 for row in xrange(0, 47):
     for col in xrange(0, 47):
         enemy_drones_board[(row,col)] = 0
+        danger_board[(row,col)] = 0
 
 def do_turn(game):
     global battles
     global game_state
     global ave_destination
     global enemy_drones_board
+    global danger_board
     global full_tiles
+    global range3
 
     #updating the memory board
     for tile in full_tiles: #decrease effect of drone pass over time.
         enemy_drones_board[tile] *= 0.99
-
+    for tile in danger_board: #decrease effect of pirates over time but slower.
+        tile *= 0.995
     #add current drone states to enemy_drones_board
     enemy_drones = game.get_enemy_living_drones()
     for drone in enemy_drones:
@@ -58,6 +62,13 @@ def do_turn(game):
         tile = (drone.location.row,drone.location.col)
         if not tile in full_tiles:
             full_tiles += [tile]
+    #add current danger tiles to danger_board
+    danger_pirates = game.get_enemy_living_pirates()
+    for pirate in danger_pirates:
+        row = pirate.location.row
+        col = pirate.location.col
+        for directions in range3:
+            danger_board[row+directions[0],col+directions[1]] += 1
 
     #chosing the game state
     if game.get_turn() < 17:
