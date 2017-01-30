@@ -295,11 +295,10 @@ def handle_pirates(game, game_state, battles):
 
     # Rushing with the stack and pirates towards the enemies that are closest to the city
     elif game_state == "RUSH":
-
-        move = best_move(enemy_pirates, game.get_my_cities())
         for pirate in pirates:
-            sail_options = game.get_sail_options(pirate, move[0])
-            game.set_sail(pirate, sail_options[len(sail_options) / 2])
+            move = best_move([pirate], enemy_pirates)
+            sailing = optimize_pirate_moves(game, pirate, move[1].location)
+            game.set_sail(pirate, sailing)
 
 
 def handle_drones(game, game_state):
@@ -496,8 +495,8 @@ def optimize_pirate_moves(game, pirate, destination):
     best_option = None
     for option in sail_options:
         option_value = 0
-        for row in xrange(min(option.row, destination.row) - 1 , max(option.row, destination.row) + 2):
-            for col in xrange(min(option.col, destination.col) - 1, max(option.col, destination.col) + 2):
+        for row in xrange(max(min(option.row, destination.row) - 2,0), min(max(option.row, destination.row) + 3,46)):
+            for col in xrange(max(min(option.col, destination.col) - 2,0), min(max(option.col, destination.col) + 3,46)):
                 option_value += enemy_drones_board[(row,col)]
         option_value -= math.hypot(option.row-23,option.col-23)
         if option_value > max_value:
