@@ -1,5 +1,4 @@
 from Pirates import *
-import random
 import math
 
 """
@@ -331,14 +330,11 @@ def handle_pirates(game, game_state, battles):
 
         move = best_move(enemy_pirates, game.get_my_cities())
         for pirate in pirates:
-<<<<<<< HEAD
             move = best_move([pirate], enemy_pirates)
             sailing = optimize_pirate_moves(game, pirate, move.get_location().location)
             game.set_sail(pirate, sailing)
-=======
-            sail_options = game.get_sail_options(pirate, move[0])
+            sail_options = game.get_sail_options(pirate, move.get_aircraft())
             game.set_sail(pirate, sail_options[len(sail_options) / 2])
->>>>>>> origin/master
 
 
 def handle_drones(game, game_state):
@@ -352,7 +348,10 @@ def handle_drones(game, game_state):
             dest_col += pirate.location.col
         dest_row = dest_row / len(game.get_my_living_pirates())
         dest_col = dest_col / len(game.get_my_living_pirates())
-        ave_destination = Location(dest_row, dest_col)
+        if game.get_myself().id == 0:
+            ave_destination = Location(dest_row,min(13,dest_col))
+        else:
+            ave_destination = Location(dest_row,max(33,dest_col))
         drone_move = best_move(game.get_enemy_living_pirates(), [ave_destination])
         if drone_move.get_dist() < 7:
             if ave_destination.row + 6 <= 46:
@@ -449,7 +448,7 @@ def optimize_drone_moves(drone, sail_options, destination, game):
                     abs(sail_options[1].row - destination.row) - abs(sail_options[1].col - destination.col)):
         return sail_options[0]
     else:
-        return sail_options[random.randint(0, 1)]
+        return sail_options[0]
 
 
 def is_new_battle(attack):
