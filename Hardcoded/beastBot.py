@@ -327,15 +327,21 @@ def handle_pirates(game, game_state, battles):
 
     # Rushing with the stack and pirates towards the enemies that are closest to the city
     elif game_state == "RUSH":
-
-        move = best_move(enemy_pirates, game.get_my_cities())
+        
+        max_stack = 0
+        stack_location = Location(0,0)
+        for drone in game.get_my_living_drones():
+            if len(game.get_aircrafts_on(drone.location)) > max_stack:
+                max_stack = len(game.get_aircrafts_on(drone.location))
+                stack_location = drone.location
+        scary_terry = best_move(enemy_pirates, [stack_location])
         for pirate in pirates:
-            move = best_move([pirate], enemy_pirates)
-            sailing = optimize_pirate_moves(game, pirate, move.get_location().location)
-            game.set_sail(pirate, sailing)
-            sail_options = game.get_sail_options(pirate, move.get_aircraft())
-            game.set_sail(pirate, sail_options[len(sail_options) / 2])
-
+            if scary_terry.get_dist() < 10:
+                sailing = optimize_pirate_moves(game, pirate, scary_terry.get_aircraft().location)
+                game.set_sail(pirate, sailing)
+            else:
+                sailing = optimize_pirate_moves(game, pirate, stack_location)
+                game.set_sail(pirate, sailing)
 
 def handle_drones(game, game_state):
     # Find the average position of my pirates and the left/right wall,
