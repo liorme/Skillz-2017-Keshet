@@ -164,7 +164,9 @@ def do_turn(game):
         game.debug("Win: " + str(battle._win))
         game.debug("Turns remaining: " + str(battle._turns_remaining))
     game.debug("Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
-
+    if len(game.get_my_living_drones()) != 0:
+        game.debug(GPS(game, game.get_my_living_drones()[0], Location(23,23)))
+    game.debug("Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
 
 def handle_pirates(game, game_state, battles):
     # Get information
@@ -583,9 +585,11 @@ def GPS(game, drone, destination):
                 board[(row,col)][cost] = tile[cost]+danger_board[(row,col)]*DANGER_COST+1
                 board[(row,col)][value] = board[(row,col)][cost]+abs(row-destination[0])+abs(col-destination[-1])+1/(1+(row-22.5)**2+(col-23)**2)
                 board[(row,col)][road] = tile[road]+[(row,col)]
-                for unchecked,itsplace in enumerate(needs_checking):
-                    if b==0 and unchecked[value] > board[(row,col)][value]:
+                for itsplace, checking_tile in enumerate(needs_checking):
+                    if b == 0 and checking_tile[value] > board[(row,col)][value]:
                         needs_checking.insert(itsplace,board[(row,col)])
-                        b=1
-                    if uncheked[index] == (row,col) and uncheked[value]!=board[(row,col)][value]:
-                        needs_checking.remove(uncheked)
+                        b = 1
+                    if checking_tile[index] == (row,col) and checking_tile[value] != board[(row,col)][value]:
+                        needs_checking.remove(checking_tile)
+                if b == 0:
+                    needs_checking.append(board[(row,col)])
