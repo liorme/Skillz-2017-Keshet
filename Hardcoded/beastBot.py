@@ -565,39 +565,48 @@ def optimize_pirate_moves(game, pirate, destination):
             best_option = option
     return best_option
 
+#takes a drone and a destination, return the safes and shortest path
 def GPS(game, drone, destination):
+    #danger_board is a memory of all the places enem pirates have threatend
     global danger_board
     destination = (destination.row,destination.col)
+    #creates a board by (row,col) that for each spot contains a dicrenry its 'index', the 'cost' to get there(infinty at the begining),
+    #the 'value' of beein there ('cost' plus min cost to get from there to destenation) and the shortest road to this point that is corently known(empty in the begining)
     board = {}
     for row in xrange(46):
         for col in xrange(47):
             board[(row,col)] = {'index':(row,col),'cost':10**99,'value':10**99,'road':[]}
+    #sets the drones loction to be 'cost' 0 and 'value' 0
     board[(drone.location.row,drone.location.col)]['cost'] = 0
     board[(drone.location.row,drone.location.col)]['value'] = 0+abs(drone.location.row-destination[0])+abs(drone.location.col-destination[-1])
+    #creates a list of points we know how to get to and that are not yet checked, this list will be sorted by the points values
     needs_checking = [board[(drone.location.row,drone.location.col)]]
+    #next_to is a list of the 4 dirctions, in an efficnt order acourding to your team
     if game.get_myself().id == 0:
         next_to =[(0,-1),(1,0),(0,1),(-1,0)]
     else:
         next_to =[(0,1),(1,0),(0,-1),(-1,0)]
     while True:
-        tile = needs_checking[0]
-        if tile['index'] == destination:
+        tile = needs_checking[0] #seting the tile with the best value to be the one we are checking
+        if tile['index'] == destination: #if this tile is the destination we return the road we found to this tile
             return board[destination]['road']
-        needs_checking = needs_checking[1:]
+        needs_checking = needs_checking[1:] #taking the tile we are checking out of needs_checking
+        # we are checking all the tiles that next to the tile we are checking and adding the road and the cost for this next_to_tile if its efficnt to go therew tile
         for i in next_to:
             row = tile['index'][0]+i[0]
             col = tile['index'][-1]+i[-1]
-            if row >= 0 and row <= 45 and col >= 0 and col <= 46:
-                if tile['cost']+danger_board[(row,col)]*DANGER_COST+1 < board[(tile['index'][0]+i[0],tile['index'][-1]+i[-1])]['cost']:
-                    b=0
-                    board[(row,col)]['cost'] = tile['cost']+danger_board[(row,col)]*DANGER_COST+1
-                    board[(row,col)]['value'] = board[(row,col)]['cost']+abs(row-destination[0])+abs(col-destination[-1])
-                    board[(row,col)]['road'] = tile['road']+[(row,col)]
-                    for itsplace,unchecked in enumerate(needs_checking):
-                        if b==0 and unchecked['value'] >= board[(row,col)]['value']:
-                            needs_checking.insert(itsplace,board[(row,col)])
-                            b=1
-                        if unchecked['index'] == (row,col) and unchecked['value']!=board[(row,col)]['value']:
-                            needs_checking.remove(unchecked)
-                    if b==0:
-                        needs_checking.append(board[(row,col)])
+            if row >= 0 and row <= 45 and col >= 0 and col <= 46: #checking that the next_to_tile is on the board
+                potential_cost = tile['cost']+danger_board[(row,col)]*DANGER_COST+1 #potential_cost is the cost to get to tile + the danger level times DANGER_COST + the turns it will take to get to this next tile (1)
+                if potential_cost < board[(row ,col)]['cost']: #checkes if the potential_cost is lower then the cost that the tile hes
+                    b=0 #checkes it updates the new tile onl once
+                    board[(row,col)]['cost'] = potential_cost #setting the new cost
+                    board[(row,col)]['value'] = potential_cost+abs(row-destination[0])+abs(col-destination[-1]) #setting the new value
+                    board[(row,col)]['road'] = tile['road']+[(row,col)] #setting the new road
+                    for itsplace,unchecked in enumerate(needs_checking[:]): #looping threw the needs_checking list and the indexes of it
+                        if b==0 and unchecked['value'] >= board[(row,col)]['value']: #if we looped and got to a place in list that the new tile hes less value(better):
+                            needs_checking.insert(itsplace,board[(row,col)]) #we insert the the new_tile into the needs_checking list
+                            b=1 #we make shor we wont add or insert it again
+                        if unchecked['index'] == (row,col) and unchecked['value']!=board[(row,col)]['value']: #if the unchecked tile is a older version of the new_tile
+                            needs_checking.remove(unchecked) #we remove it
+                    if b==0: #if we didnt inserted the new_tile yet (it hes the worst value)
+                        needs_checking.append(board[(row,col)]) #we append it ate the end of the needs_checking list
