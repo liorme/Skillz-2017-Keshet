@@ -74,6 +74,7 @@ rows = 1
 cols = 1
 set = False
 game_state = ""
+drones_planes = []
 
 # Constants:
 ENEMY_DRONE_REMEMBER_FACTOR = 0.99
@@ -163,15 +164,6 @@ def do_turn(game):
         game.debug(battle._location_pirate)
         game.debug("Win: " + str(battle._win))
         game.debug("Turns remaining: " + str(battle._turns_remaining))
-    game.debug("Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
-    x=0
-    while game.get_time_remaining() > -80:
-        if x == len(game.get_my_living_drones()):
-            game.debug("out of drones")
-            break
-        game.debug(GPS(game, game.get_my_living_drones()[x], Location(23,23)))
-        x+=1
-    game.debug(x)
     game.debug("Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
 
 
@@ -361,6 +353,28 @@ def handle_pirates(game, game_state, battles):
 
 
 def handle_drones(game, game_state):
+    global drones_planes
+    drones = game.get_my_living_drones()
+    living_drones_ids = [drone.id for drone in drones]
+    islands_locations = [island.location for island in game.get_my_islands()]
+
+    #making new planes
+    for drone in drones:
+        if drone.location in islands_locations:
+            new_plan = GPS(game, drone, game.get_my_cities()[0].location)
+            drones_planes.append({"id":drone.id,"steps":new_plan})
+        if game.get_time_remaining() < -50:
+            break
+    
+    # executing drones planes
+    for plan in drones_planes:
+        if plan["steps"] != [] and plan["id"] in living_drones_ids:
+            drone = game.get_my_drone_by_id(plan["id"])
+            next_step = Location(plan["steps"][0][0],plan["steps"][0][-1])
+            game.set_sail(drone, next_step)
+            drones.remove(drone)
+            plan["steps"] = plan["steps"][1:]
+    
     # Find the average position of my pirates and the left/right wall,
     # and send the drones there. If enemy pirate is close to point then move point closer to spawn point
     if game_state == "STACK":
@@ -391,14 +405,14 @@ def handle_drones(game, game_state):
         game.debug(ave_destination)
 
         # For each drone if the distance to the city is way smaller then the distance to stack point then go to city
-        for drone in game.get_my_living_drones():
+        for drone in drones:
             if drone.distance(game.get_my_cities()[0]) * 2 < drone.distance(ave_destination):
                 sail_options = game.get_sail_options(drone, game.get_my_cities()[0])
-                sail = optimize_drone_moves(drone, sail_options, game.get_my_cities()[0].location, game)
+                sail = optimize_drone_moves(sail_options)
                 game.set_sail(drone, sail)
             else:
                 sail_options = game.get_sail_options(drone, ave_destination)
-                sail = optimize_drone_moves(drone, sail_options, ave_destination, game)
+                sail = optimize_drone_moves(sail_options)
                 game.set_sail(drone, sail)
 
     # Just go towards my city
@@ -406,7 +420,7 @@ def handle_drones(game, game_state):
         for drone in game.get_my_living_drones():
             destination = game.get_my_cities()[0]
             sail_options = game.get_sail_options(drone, destination)
-            sail = optimize_drone_moves(drone, sail_options, destination.location, game)
+            sail = optimize_drone_moves(sail_options)
             game.set_sail(drone, sail)
 
 
@@ -453,25 +467,13 @@ def best_move(aircrafts, locations):
     return min_move
 
 
-def optimize_drone_moves(drone, sail_options, destination, game):
+def optimize_drone_moves(sail_options):
     if len(sail_options) == 1:
         return sail_options[0]
-
-    for enemy in game.get_enemy_living_pirates():
-        if drone.distance(enemy) < 7:
-            if sail_options[0].distance(enemy) < sail_options[1].distance(enemy):
-                return sail_options[1]
-            elif sail_options[0].distance(enemy) > sail_options[1].distance(enemy):
-                return sail_options[0]
-
-    if abs(abs(sail_options[0].row - destination.row) - abs(sail_options[0].col - destination.col)) > abs(
-                    abs(sail_options[1].row - destination.row) - abs(sail_options[1].col - destination.col)):
-        return sail_options[1]
-    elif abs(abs(sail_options[0].row - destination.row) - abs(sail_options[0].col - destination.col)) < abs(
-                    abs(sail_options[1].row - destination.row) - abs(sail_options[1].col - destination.col)):
+    elif (sail_options[0].row-24)**2+(sail_options[0].col-23)**2 > (sail_options[1].row-24)**2+(sail_options[1].col-23)**2:
         return sail_options[0]
     else:
-        return sail_options[0]
+        return sail_options[1]
 
 
 def is_new_battle(attack):
@@ -551,6 +553,7 @@ def optimize_pirate_moves(game, pirate, destination):
     :return: best_option - sailing option (one of the options returned by get_sail_options)
     """
     global enemy_drones_board
+    global rows, cols
     sail_options = game.get_sail_options(pirate, destination)
     max_value = -100
     best_option = None
@@ -558,7 +561,8 @@ def optimize_pirate_moves(game, pirate, destination):
         option_value = 0
         for row in xrange(min(option.row, destination.row) - 1, max(option.row, destination.row) + 2):
             for col in xrange(min(option.col, destination.col) - 1, max(option.col, destination.col) + 2):
-                option_value += enemy_drones_board[(row, col)]
+                if col >= 0 and col < cols and row >= 0 and row < rows:
+                    option_value += enemy_drones_board[(row, col)]
         option_value -= math.hypot(option.row - 23, option.col - 23)
         if option_value > max_value:
             max_value = option_value
@@ -576,7 +580,7 @@ def GPS(game, drone, destination):
     for row in xrange(46):
         for col in xrange(47):
             board[(row,col)] = {'index':(row,col),'cost':10**99,'value':10**99,'road':[]}
-    #sets the drones loction to be 'cost' 0 and 'value' 0
+    #sets the drones location to be 'cost' 0 and 'value' 0
     board[(drone.location.row,drone.location.col)]['cost'] = 0
     board[(drone.location.row,drone.location.col)]['value'] = 0+abs(drone.location.row-destination[0])+abs(drone.location.col-destination[-1])
     #creates a list of points we know how to get to and that are not yet checked, this list will be sorted by the points values
