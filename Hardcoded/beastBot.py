@@ -164,9 +164,16 @@ def do_turn(game):
         game.debug("Win: " + str(battle._win))
         game.debug("Turns remaining: " + str(battle._turns_remaining))
     game.debug("Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
-    if len(game.get_my_living_drones()) != 0:
-        game.debug(GPS(game, game.get_my_living_drones()[0], Location(23,23)))
+    x=0
+    while game.get_time_remaining() > -80:
+        if x == len(game.get_my_living_drones()):
+            game.debug("out of drones")
+            break
+        game.debug(GPS(game, game.get_my_living_drones()[x], Location(23,23)))
+        x+=1
+    game.debug(x)
     game.debug("Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
+
 
 def handle_pirates(game, game_state, battles):
     # Get information
@@ -562,34 +569,35 @@ def GPS(game, drone, destination):
     global danger_board
     destination = (destination.row,destination.col)
     board = {}
-    index = "index"
-    cost = "cost"
-    value = "value"
-    road = "road"
     for row in xrange(46):
         for col in xrange(47):
-            board[(row,col)] = {index:(row,col),cost:10**99,value:10**99,road:[]}
-    board[(drone.location.row,drone.location.col)][cost] = 0
-    board[(drone.location.row,drone.location.col)][value] = 0+abs(drone.location.row-destination[0])+abs(drone.location.col-destination[-1])+1/(1+(drone.location.row-22.5)**2+(drone.location.col-23)**2)
+            board[(row,col)] = {'index':(row,col),'cost':10**99,'value':10**99,'road':[]}
+    board[(drone.location.row,drone.location.col)]['cost'] = 0
+    board[(drone.location.row,drone.location.col)]['value'] = 0+abs(drone.location.row-destination[0])+abs(drone.location.col-destination[-1])
     needs_checking = [board[(drone.location.row,drone.location.col)]]
+    if game.get_myself().id == 0:
+        next_to =[(0,-1),(1,0),(0,1),(-1,0)]
+    else:
+        next_to =[(0,1),(1,0),(0,-1),(-1,0)]
     while True:
         tile = needs_checking[0]
-        if tile[index] == destination:
-            return board[destination][road]
+        if tile['index'] == destination:
+            return board[destination]['road']
         needs_checking = needs_checking[1:]
-        for i in [(1,0),(0,1),(-1,0),(0,-1)]:
-            row = tile[index][0]+i[0]
-            col = tile[index][-1]+i[-1]
-            if tile[cost]+danger_board[(row,col)]*DANGER_COST+1 < board[(tile[index][0]+i[0],tile[index][-1]+i[-1])][cost]:
-                b=0
-                board[(row,col)][cost] = tile[cost]+danger_board[(row,col)]*DANGER_COST+1
-                board[(row,col)][value] = board[(row,col)][cost]+abs(row-destination[0])+abs(col-destination[-1])+1/(1+(row-22.5)**2+(col-23)**2)
-                board[(row,col)][road] = tile[road]+[(row,col)]
-                for itsplace, checking_tile in enumerate(needs_checking):
-                    if b == 0 and checking_tile[value] > board[(row,col)][value]:
-                        needs_checking.insert(itsplace,board[(row,col)])
-                        b = 1
-                    if checking_tile[index] == (row,col) and checking_tile[value] != board[(row,col)][value]:
-                        needs_checking.remove(checking_tile)
-                if b == 0:
-                    needs_checking.append(board[(row,col)])
+        for i in next_to:
+            row = tile['index'][0]+i[0]
+            col = tile['index'][-1]+i[-1]
+            if row >= 0 and row <= 45 and col >= 0 and col <= 46:
+                if tile['cost']+danger_board[(row,col)]*DANGER_COST+1 < board[(tile['index'][0]+i[0],tile['index'][-1]+i[-1])]['cost']:
+                    b=0
+                    board[(row,col)]['cost'] = tile['cost']+danger_board[(row,col)]*DANGER_COST+1
+                    board[(row,col)]['value'] = board[(row,col)]['cost']+abs(row-destination[0])+abs(col-destination[-1])
+                    board[(row,col)]['road'] = tile['road']+[(row,col)]
+                    for itsplace,unchecked in enumerate(needs_checking):
+                        if b==0 and unchecked['value'] >= board[(row,col)]['value']:
+                            needs_checking.insert(itsplace,board[(row,col)])
+                            b=1
+                        if unchecked['index'] == (row,col) and unchecked['value']!=board[(row,col)]['value']:
+                            needs_checking.remove(unchecked)
+                    if b==0:
+                        needs_checking.append(board[(row,col)])
