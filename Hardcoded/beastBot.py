@@ -88,6 +88,7 @@ PIRATE = 0
 DRONE = 1
 NO_ATTACK = -1
 DANGER_COST = 5
+RUSH_RADIUS = 10
 
 
 def do_turn(game):
@@ -352,7 +353,7 @@ def handle_pirates(game, game_state, battles):
                 stack_location = drone.location
         scary_terry = best_move(enemy_pirates, [stack_location])
         for pirate in pirates:
-            if scary_terry.get_dist() < 10:
+            if scary_terry.get_dist() < RUSH_RADIUS:
                 sailing = optimize_pirate_moves(game, pirate, scary_terry.get_aircraft().location)
                 game.set_sail(pirate, sailing)
             else:
@@ -575,7 +576,7 @@ def GPS(game, drone, destination):
     board = {}
     for row in xrange(46):
         for col in xrange(47):
-            board[(row,col)] = {'index':(row,col),'cost':10**99,'value':10**99,'road':[]}
+            board[ר(row,col)] = {'index':(row,col),'cost':10**99,'value':10**99,'road':[]}
     #sets the drones loction to be 'cost' 0 and 'value' 0
     board[(drone.location.row,drone.location.col)]['cost'] = 0
     board[(drone.location.row,drone.location.col)]['value'] = 0+abs(drone.location.row-destination[0])+abs(drone.location.col-destination[-1])
