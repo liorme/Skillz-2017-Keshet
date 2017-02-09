@@ -75,10 +75,11 @@ cols = 1
 set = False
 game_state = ""
 drones_plans = []
+stacking = 0
 
 # Constants:
 ENEMY_DRONE_REMEMBER_FACTOR = 0.99
-ENEMY_PIRATE_REMEMBER_FACTOR = 0.995
+ENEMY_PIRATE_REMEMBER_FACTOR = 0.9
 MAX_TIME_TO_RUSH = 50
 MIN_DRONES_ALIVE_AND_POINTS_TO_RUSH = 29
 MIN_DRONES_ALIVE_TO_CONTINUE_RUSH = 5
@@ -91,13 +92,14 @@ NO_ATTACK = -1
 DANGER_COST = 5
 RUSH_RADIUS = 6
 
-
 def do_turn(game):
     global battles, enemy_drones_board, full_tiles, danger_board
     global game_state, ave_destination
     global rows, cols
     global set
     global range3
+    global stacking
+
 
     # initialize variables for the first run:
 
@@ -133,7 +135,7 @@ def do_turn(game):
             dirow = row+directions[0]
             dicol = col+directions[1]
             if dirow <= 45 and dirow >= 0 and dicol >= 0 and dicol <= 46:
-                danger_board[dirow,dicol] += 1
+                danger_board[(dirow,dicol)] += 1
 
     # choose the game state:
     if game.get_turn() < EARLY_TURNS:
@@ -148,9 +150,14 @@ def do_turn(game):
                     game.get_my_cities()).get_dist() < MIN_PIRATE_CITY_DIST_TO_STACK) or (
                     game_state == "STACK" and best_move(game.get_enemy_living_pirates(),
                                                         game.get_my_cities()).get_dist() < MIN_PIRATE_CITY_DIST_TO_CONT_STACK):
-        game_state = "STACK"
+        stacking += 1
+        if stacking >= 15:
+            game_state = "STACK"
+        else:
+            game_state = "CONTROL"
     else:
         game_state = "CONTROL"
+        stacking = max(0, stacking -7)
 
     game.debug(game_state)
 
@@ -240,7 +247,7 @@ def handle_pirates(game, game_state, battles):
             """
             enemy_next_move = None
             # Defend the point where the drones stack if an enemy is near it
-            if protect_drones == 0:
+            if protect_drones == 0 and game_state == "STACK":
                 for enemy in enemy_pirates:
                     if len(pirates) == 0:
                         break
@@ -336,7 +343,6 @@ def handle_pirates(game, game_state, battles):
 
     # Rushing with the stack and pirates towards the enemies that are closest to the city
     elif game_state == "RUSH":
-
         max_stack = 0
         stack_location = Location(0, 0)
         for drone in game.get_my_living_drones():
@@ -392,12 +398,13 @@ def handle_drones(game, game_state):
                     continue
                 elif abs(drone.location.row - plan["steps"][0][0]) == 0 and abs(drone.location.col - plan["steps"][0][1]) == 1:
                     continue
-                else:
+                elif game.get_time_remaining() > -40:
                     drones_plans.remove(plan)
                     new_plan = GPS(game, drone, game.get_my_cities()[0].location)
                     drones_plans.append({"id": drone.id, "steps": new_plan})
-            elif plan["id"] not in living_drones_ids:
-                drones_plans.remove(plan)
+                else:
+                    drones_plans.remove(plan)
+
 
 
         # executing drones planes
@@ -405,9 +412,9 @@ def handle_drones(game, game_state):
             if plan["steps"] != [] and plan["id"] in living_drones_ids:
                 drone = game.get_my_drone_by_id(plan["id"])
                 next_step = Location(plan["steps"][0][0],plan["steps"][0][-1])
-                game.debug(drone, next_step, plan)
-                game.set_sail(drone, next_step)
-                if drone in drones: drones.remove(drone)
+                if drone in drones:
+                    drones.remove(drone)
+                    game.set_sail(drone, next_step)
                 plan["steps"] = plan["steps"][1:]
     
     # Find the average position of my pirates and the left/right wall,
