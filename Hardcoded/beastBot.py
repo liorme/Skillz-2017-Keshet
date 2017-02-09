@@ -204,15 +204,16 @@ def handle_pirates(game, game_state, battles):
                     create_new_battle(attack, game)
                 pirates.remove(attack.get_attacker())
 
-    # Try helping battles
-    for battle in battles:
-        for pirate in pirates:
-            if math.ceil((pirate.distance(battle._location_pirate) - 2) / 2.0) <= \
-                    battle._turns_remaining and not battle._win:
-                game.debug("Pirate: " + str(pirate.id) + " is helping with a battle!")
-                sail_options = game.get_sail_options(pirate, battle._location_pirate)
-                game.set_sail(pirate, sail_options[len(sail_options) / 2])
-                pirates.remove(pirate)
+    # Try helping battles, but ignore battles when rushing
+    if game_state != "RUSH":
+        for battle in battles:
+            for pirate in pirates:
+                if math.ceil((pirate.distance(battle._location_pirate) - 2) / 2.0) <= \
+                        battle._turns_remaining and not battle._win:
+                    game.debug("Pirate: " + str(pirate.id) + " is helping with a battle!")
+                    sail_options = game.get_sail_options(pirate, battle._location_pirate)
+                    game.set_sail(pirate, sail_options[len(sail_options) / 2])
+                    pirates.remove(pirate)
 
     # If early in the game rush bottom middle island with 4 pirates and upper right/left island with 1 pirate
     if game_state == "EARLY":
