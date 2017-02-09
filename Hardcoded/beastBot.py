@@ -74,7 +74,7 @@ rows = 1
 cols = 1
 set = False
 game_state = ""
-drones_planes = []
+drones_plans = []
 
 # Constants:
 ENEMY_DRONE_REMEMBER_FACTOR = 0.99
@@ -354,7 +354,7 @@ def handle_pirates(game, game_state, battles):
 
 
 def handle_drones(game, game_state):
-    global drones_planes
+    global drones_plans
     global rows, cols
     drones = game.get_my_living_drones()
     living_drones_ids = [drone.id for drone in drones]
@@ -363,32 +363,49 @@ def handle_drones(game, game_state):
     
     #dodging enemy pirates while there are drones in danger
     while game_state != "RUSH":
-        escapeing_info = best_move(drones, enemy_pirates)
-        if escapeing_info.get_dist() > 6:
+        escaping_info = best_move(drones, enemy_pirates)
+        if escaping_info.get_dist() > 6:
             break
-        row = min(rows-1,max(2*escapeing_info.get_aircraft().location.row - escapeing_info.get_location().location.row,0))
-        col = min(cols-1,max(2*escapeing_info.get_aircraft().location.col - escapeing_info.get_location().location.col,0))
-        sail_options = game.get_sail_options(escapeing_info.get_aircraft(), Location(row,col))
+        row = min(rows-1,max(2*escaping_info.get_aircraft().location.row - escaping_info.get_location().location.row,0))
+        col = min(cols-1,max(2*escaping_info.get_aircraft().location.col - escaping_info.get_location().location.col,0))
+        sail_options = game.get_sail_options(escaping_info.get_aircraft(), Location(row,col))
         sailing = optimize_drone_moves(sail_options)
-        game.set_sail(escapeing_info.get_aircraft(), sailing)
-        drones.remove(escapeing_info.get_aircraft())
-        living_drones_ids.remove(escapeing_info.get_aircraft().id)
+        game.set_sail(escaping_info.get_aircraft(), sailing)
+        drones.remove(escaping_info.get_aircraft())
+        living_drones_ids.remove(escaping_info.get_aircraft().id)
         game.debug("ESCAPE")
     
     if game_state == "CONTROL":
-        #making new planes
+        # making new plans
         for drone in drones:
             if drone.location in islands_locations:
                 new_plan = GPS(game, drone, game.get_my_cities()[0].location)
-                drones_planes.append({"id":drone.id,"steps":new_plan})
+                drones_plans.append({"id":drone.id,"steps":new_plan})
             if game.get_time_remaining() < -30:
                 break
-        
+
+        # plan isn't relevant (drone killed or moved away from path)
+        for plan in drones_plans[:]:
+            if plan["steps"] != [] and plan["id"] in living_drones_ids:
+                drone = game.get_my_drone_by_id(plan["id"])
+                if abs(drone.location.row - plan["steps"][0][0]) == 1 and abs(drone.location.col - plan["steps"][0][1]) == 0:
+                    continue
+                elif abs(drone.location.row - plan["steps"][0][0]) == 0 and abs(drone.location.col - plan["steps"][0][1]) == 1:
+                    continue
+                else:
+                    drones_plans.remove(plan)
+                    new_plan = GPS(game, drone, game.get_my_cities()[0].location)
+                    drones_plans.append({"id": drone.id, "steps": new_plan})
+            elif plan["id"] not in living_drones_ids:
+                drones_plans.remove(plan)
+
+
         # executing drones planes
-        for plan in drones_planes:
+        for plan in drones_plans:
             if plan["steps"] != [] and plan["id"] in living_drones_ids:
                 drone = game.get_my_drone_by_id(plan["id"])
                 next_step = Location(plan["steps"][0][0],plan["steps"][0][-1])
+                game.debug(drone, next_step, plan)
                 game.set_sail(drone, next_step)
                 if drone in drones: drones.remove(drone)
                 plan["steps"] = plan["steps"][1:]
