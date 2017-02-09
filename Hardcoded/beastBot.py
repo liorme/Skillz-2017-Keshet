@@ -90,7 +90,9 @@ PIRATE = 0
 DRONE = 1
 NO_ATTACK = -1
 DANGER_COST = 5
+
 RUSH_RADIUS = 6
+
 
 def do_turn(game):
     global battles, enemy_drones_board, full_tiles, danger_board
@@ -621,8 +623,10 @@ def GPS(game, drone, destination):
     board = {}
     for row in xrange(46):
         for col in xrange(47):
+
             board[(row,col)] = {'index':(row,col),'cost':10**99,'value':10**99,'road':[]}
     #sets the drones location to be 'cost' 0 and 'value' 0
+
     board[(drone.location.row,drone.location.col)]['cost'] = 0
     board[(drone.location.row,drone.location.col)]['value'] = 0+abs(drone.location.row-destination[0])+abs(drone.location.col-destination[-1])
     #creates a list of points we know how to get to and that are not yet checked, this list will be sorted by the points values
