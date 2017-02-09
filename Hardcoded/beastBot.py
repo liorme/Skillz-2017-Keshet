@@ -91,7 +91,7 @@ DRONE = 1
 NO_ATTACK = -1
 DANGER_COST = 5
 
-RUSH_RADIUS = 6
+RUSH_RADIUS = 8
 
 
 def do_turn(game):
@@ -258,7 +258,7 @@ def handle_pirates(game, game_state, battles):
                     if enemy.distance(ave_destination) < 10:
                         move = best_move(pirates, [enemy])
                         sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
-                        if not pirate in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
+                        if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
                         pirates.remove(move.get_aircraft())
                 protect_drones += 1
 
@@ -326,7 +326,7 @@ def handle_pirates(game, game_state, battles):
                 else:
                     move = best_move(pirates, enemy_pirates)
                     sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
-                    game.set_sail(move.get_aircraft(), sailing)
+                    if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
                     pirates.remove(move.get_aircraft())
                     enemy_pirates.remove(move.get_location())
 
@@ -353,6 +353,7 @@ def handle_pirates(game, game_state, battles):
             if len(game.get_aircrafts_on(drone.location)) > max_stack:
                 max_stack = len(game.get_aircrafts_on(drone.location))
                 stack_location = drone.location
+        stack_location = Location(stack_location.row,stack_location.col+2-4*game.get_myself().id)
         scary_terry = best_move(enemy_pirates, [stack_location])
         for pirate in pirates:
             if scary_terry.get_dist() < RUSH_RADIUS:
