@@ -235,7 +235,7 @@ def handle_pirates(game, game_state, battles):
             i += 1
 
     # Try to get islands, kill drones, kill pirates, and gain map control in general
-    elif game_state == "STACK" or game_state == "CONTROL":
+    elif game_state == "STACK" or game_state == "CONTROL" or game_state == "RUSH":
         protect_drones = 0
         defend_islands = 0
         check_battles = 0
@@ -368,7 +368,11 @@ def handle_pirates(game, game_state, battles):
 
     # Rushing with the stack and pirates towards the enemies that are closest to the city
     elif game_state == "RUSH":
-        max_stack = 0
+        for pirate in pirates:
+            move = best_move([pirate], enemy_pirates)
+            sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
+            if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
+        """max_stack = 0
         stack_location = Location(0, 0)
         for drone in game.get_my_living_drones():
             if len(game.get_aircrafts_on(drone.location)) > max_stack:
@@ -387,7 +391,7 @@ def handle_pirates(game, game_state, battles):
             else:
                 sailing = optimize_pirate_moves(game, pirates[0], stack_location)
                 if not pirates[0] in semi_used_pirates: game.set_sail(pirates[0], sailing)
-                pirates.remove(pirates[0])
+                pirates.remove(pirates[0])"""
 
 
 def handle_drones(game, game_state):
@@ -477,6 +481,7 @@ def handle_drones(game, game_state):
                 ave_destination.col = 0
             else:
                 ave_destination.col = 46
+        ave_destination = Location(0,(cols-1)*(1-game.get_myself().id))
         game.debug(ave_destination)
 
         # For each drone if the distance to the city is way smaller then the distance to stack point then go to city
