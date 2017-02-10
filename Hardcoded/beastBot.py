@@ -200,6 +200,7 @@ def handle_pirates(game, game_state, battles):
             if attack.get_target_type() == DRONE:
                 semi_used_pirates.append(attack.get_attacker())
                 enemy_drones.remove(attack.get_target())
+                pirates.remove(attack.get_attacker())
             elif attack.get_target_type() == PIRATE:
                 if is_new_battle(attack):
                     create_new_battle(attack, game)
