@@ -78,7 +78,7 @@ drones_plans = []
 stacking = 0
 
 # Constants:
-ENEMY_DRONE_REMEMBER_FACTOR = 0.99
+ENEMY_DRONE_REMEMBER_FACTOR = 0.9
 ENEMY_PIRATE_REMEMBER_FACTOR = 0.9
 MAX_TIME_TO_RUSH = 50
 MIN_DRONES_ALIVE_AND_POINTS_TO_RUSH = 29
@@ -101,7 +101,6 @@ def do_turn(game):
     global set
     global range3
     global stacking
-
 
     # initialize variables for the first run:
 
@@ -128,25 +127,25 @@ def do_turn(game):
         if tile not in full_tiles:
             full_tiles.append(tile)
 
-    #add current danger tiles to danger_board:
+    # add current danger tiles to danger_board:
     danger_pirates = game.get_enemy_living_pirates()
     for pirate in danger_pirates:
         row = pirate.location.row
         col = pirate.location.col
         for directions in range3:
-            dirow = row+directions[0]
-            dicol = col+directions[1]
+            dirow = row + directions[0]
+            dicol = col + directions[1]
             if dirow <= 45 and dirow >= 0 and dicol >= 0 and dicol <= 46:
-                danger_board[(dirow,dicol)] += 1
+                danger_board[(dirow, dicol)] += 1
 
     # choose the game state:
     if game.get_turn() < EARLY_TURNS:
         game_state = "EARLY"
-    elif (len(
+    elif ((len(
             game.get_my_living_drones()) > MIN_DRONES_ALIVE_AND_POINTS_TO_RUSH - game.get_my_score()
           or game.get_max_turns() - game.get_turn() < MAX_TIME_TO_RUSH) or (
                         game_state == "RUSH" and len(
-                    game.get_my_living_drones()) > MIN_DRONES_ALIVE_TO_CONTINUE_RUSH or game.get_max_turns() - game.get_turn() < MAX_TIME_TO_RUSH):
+                    game.get_my_living_drones()) > MIN_DRONES_ALIVE_TO_CONTINUE_RUSH or game.get_max_turns() - game.get_turn() < MAX_TIME_TO_RUSH))and (game_state == "RUSH" or len(game.get_my_islands()) >= len(game.get_not_my_islands())):
         game_state = "RUSH"
     elif (best_move(game.get_enemy_living_pirates(),
                     game.get_my_cities()).get_dist() < MIN_PIRATE_CITY_DIST_TO_STACK) or (
@@ -159,7 +158,7 @@ def do_turn(game):
             game_state = "STACK"
     else:
         game_state = "STACK"
-        stacking = max(0, stacking -1)
+        stacking = max(0, stacking - 1)
 
     game.debug(game_state)
 
@@ -188,10 +187,17 @@ def handle_pirates(game, game_state, battles):
     enemy_drones = game.get_enemy_living_drones()
     enemy_health = {}
     semi_used_pirates = []
+    full_hp_pirates = []
+    do_defend_top = False
 
     # Get a list of enemy pirates health for try_attack
     for enemy in enemy_pirates:
         enemy_health[enemy] = enemy.current_health
+
+    #if we are controling one of the important islands we will try to send more pirates there
+    for island in game.get_all_islands()[1:2]:
+        if island in game.get_my_islands():
+            do_defend_top = True
 
     # Try attacking, and updating battles
     for pirate in pirates[:]:
@@ -291,7 +297,8 @@ def handle_pirates(game, game_state, battles):
 
                 if best_blocking_pirate_move[0] is not None:
                     sailing = optimize_pirate_moves(game, best_blocking_pirate_move[0], enemy_next_move)
-                    if not best_blocking_pirate_move[0] in semi_used_pirates: game.set_sail(best_blocking_pirate_move[0], sailing)
+                    if not best_blocking_pirate_move[0] in semi_used_pirates: game.set_sail(
+                        best_blocking_pirate_move[0], sailing)
                     pirates.remove(best_blocking_pirate_move[0])
                     game.debug("ISLAND DEFENDED:")
                     game.debug("My Pirate " + str(best_blocking_pirate_move[0]))
@@ -306,6 +313,20 @@ def handle_pirates(game, game_state, battles):
                 if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
                 pirates.remove(move.get_aircraft())
                 islands.remove(move.get_location())
+
+            #sending one full hp drone that havnt beein used yet to one of the important islands
+            elif do_defend_top:
+                for pirate in pirates:
+                    if pirate.current_health == 5:
+                        full_hp_pirates.append(pirate)
+                if len(full_hp_pirates) > 0:
+                    move = best_move(full_hp_pirates, game.get_all_islands()[1:2])
+                    sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
+                    if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
+                    pirates.remove(move.get_aircraft())
+                    game.debug(str(move.get_aircraft().id)+str(sailing))
+                do_defend_top = False
+
 
             # Sends pirates after enemy pirates
             elif len(enemy_pirates) > 0:
@@ -353,15 +374,20 @@ def handle_pirates(game, game_state, battles):
             if len(game.get_aircrafts_on(drone.location)) > max_stack:
                 max_stack = len(game.get_aircrafts_on(drone.location))
                 stack_location = drone.location
-        stack_location = Location(stack_location.row,stack_location.col+2-4*game.get_myself().id)
-        scary_terry = best_move(enemy_pirates, [stack_location])
-        for pirate in pirates:
-            if scary_terry.get_dist() < RUSH_RADIUS:
-                sailing = optimize_pirate_moves(game, pirate, scary_terry.get_aircraft().location)
-                if not pirate in semi_used_pirates: game.set_sail(pirate, sailing)
+        stack_location = Location(stack_location.row, stack_location.col + 2 - 4 * game.get_myself().id)
+        while len(pirates) > 0:
+            if len(enemy_pirates) > 0:
+                scary_terry = best_move(enemy_pirates, [stack_location])
+                if scary_terry.get_dist() < RUSH_RADIUS:
+                    pirate = best_move(pirates,[scary_terry.get_aircraft()]).get_aircraft()
+                    sailing = optimize_pirate_moves(game, pirate, scary_terry.get_aircraft().location)
+                    if not pirate in semi_used_pirates: game.set_sail(pirate, sailing)
+                    pirates.remove(pirate)
+                enemy_pirates.remove(scary_terry.get_aircraft())
             else:
-                sailing = optimize_pirate_moves(game, pirate, stack_location)
-                if not pirate in semi_used_pirates: game.set_sail(pirate, sailing)
+                sailing = optimize_pirate_moves(game, pirates[0], stack_location)
+                if not pirates[0] in semi_used_pirates: game.set_sail(pirates[0], sailing)
+                pirates.remove(pirates[0])
 
 
 def handle_drones(game, game_state):
@@ -371,27 +397,29 @@ def handle_drones(game, game_state):
     living_drones_ids = [drone.id for drone in drones]
     islands_locations = [island.location for island in game.get_my_islands()]
     enemy_pirates = game.get_enemy_living_pirates()
-    
-    #dodging enemy pirates while there are drones in danger
+
+    # dodging enemy pirates while there are drones in danger
     while game_state != "RUSH":
         escaping_info = best_move(drones, enemy_pirates)
         if escaping_info.get_dist() > 6:
             break
-        row = min(rows-1,max(2*escaping_info.get_aircraft().location.row - escaping_info.get_location().location.row,0))
-        col = min(cols-1,max(2*escaping_info.get_aircraft().location.col - escaping_info.get_location().location.col,0))
-        sail_options = game.get_sail_options(escaping_info.get_aircraft(), Location(row,col))
+        row = min(rows - 1,
+                  max(2 * escaping_info.get_aircraft().location.row - escaping_info.get_location().location.row, 0))
+        col = min(cols - 1,
+                  max(2 * escaping_info.get_aircraft().location.col - escaping_info.get_location().location.col, 0))
+        sail_options = game.get_sail_options(escaping_info.get_aircraft(), Location(row, col))
         sailing = optimize_drone_moves(sail_options)
         game.set_sail(escaping_info.get_aircraft(), sailing)
         drones.remove(escaping_info.get_aircraft())
         living_drones_ids.remove(escaping_info.get_aircraft().id)
         game.debug("ESCAPE")
-    
+
     if game_state == "CONTROL":
         # making new plans
         for drone in drones:
             if drone.location in islands_locations:
                 new_plan = GPS(game, drone, game.get_my_cities()[0].location)
-                drones_plans.append({"id":drone.id,"steps":new_plan})
+                drones_plans.append({"id": drone.id, "steps": new_plan})
             if game.get_time_remaining() < -30:
                 break
 
@@ -399,9 +427,11 @@ def handle_drones(game, game_state):
         for plan in drones_plans[:]:
             if plan["steps"] != [] and plan["id"] in living_drones_ids:
                 drone = game.get_my_drone_by_id(plan["id"])
-                if abs(drone.location.row - plan["steps"][0][0]) == 1 and abs(drone.location.col - plan["steps"][0][1]) == 0:
+                if abs(drone.location.row - plan["steps"][0][0]) == 1 and abs(
+                                drone.location.col - plan["steps"][0][1]) == 0:
                     continue
-                elif abs(drone.location.row - plan["steps"][0][0]) == 0 and abs(drone.location.col - plan["steps"][0][1]) == 1:
+                elif abs(drone.location.row - plan["steps"][0][0]) == 0 and abs(
+                                drone.location.col - plan["steps"][0][1]) == 1:
                     continue
                 elif game.get_time_remaining() > -40:
                     drones_plans.remove(plan)
@@ -410,18 +440,16 @@ def handle_drones(game, game_state):
                 else:
                     drones_plans.remove(plan)
 
-
-
         # executing drones planes
         for plan in drones_plans:
             if plan["steps"] != [] and plan["id"] in living_drones_ids:
                 drone = game.get_my_drone_by_id(plan["id"])
-                next_step = Location(plan["steps"][0][0],plan["steps"][0][-1])
+                next_step = Location(plan["steps"][0][0], plan["steps"][0][-1])
                 if drone in drones:
                     drones.remove(drone)
                     game.set_sail(drone, next_step)
                 plan["steps"] = plan["steps"][1:]
-    
+
     # Find the average position of my pirates and the left/right wall,
     # and send the drones there. If enemy pirate is close to point then move point closer to spawn point
     if game_state == "STACK":
@@ -517,7 +545,8 @@ def best_move(aircrafts, locations):
 def optimize_drone_moves(sail_options):
     if len(sail_options) == 1:
         return sail_options[0]
-    elif (sail_options[0].row-24)**2+(sail_options[0].col-23)**2 > (sail_options[1].row-24)**2+(sail_options[1].col-23)**2:
+    elif (sail_options[0].row - 24) ** 2 + (sail_options[0].col - 23) ** 2 > (sail_options[1].row - 24) ** 2 + (
+        sail_options[1].col - 23) ** 2:
         return sail_options[0]
     else:
         return sail_options[1]
@@ -606,8 +635,8 @@ def optimize_pirate_moves(game, pirate, destination):
     best_option = None
     for option in sail_options:
         option_value = 0
-        for row in xrange(min(option.row, destination.row) - 1, max(option.row, destination.row) + 2):
-            for col in xrange(min(option.col, destination.col) - 1, max(option.col, destination.col) + 2):
+        for row in xrange(min(option.row, destination.row) - 2, max(option.row, destination.row) + 2):
+            for col in xrange(min(option.col, destination.col) - 2, max(option.col, destination.col) + 2):
                 if col >= 0 and col < cols and row >= 0 and row < rows:
                     option_value += enemy_drones_board[(row, col)]
         option_value -= math.hypot(option.row - 23, option.col - 23)
@@ -616,50 +645,58 @@ def optimize_pirate_moves(game, pirate, destination):
             best_option = option
     return best_option
 
-#takes a drone and a destination, return the safes and shortest path
+
+# takes a drone and a destination, return the safes and shortest path
 def GPS(game, drone, destination):
-    #danger_board is a memory of all the places enem pirates have threatend
+    # danger_board is a memory of all the places enem pirates have threatend
     global danger_board
-    destination = (destination.row,destination.col)
-    #creates a board by (row,col) that for each spot contains a dicrenry its 'index', the 'cost' to get there(infinty at the begining),
-    #the 'value' of beein there ('cost' plus min cost to get from there to destenation) and the shortest road to this point that is corently known(empty in the begining)
+    destination = (destination.row, destination.col)
+    # creates a board by (row,col) that for each spot contains a dicrenry its 'index', the 'cost' to get there(infinty at the begining),
+    # the 'value' of beein there ('cost' plus min cost to get from there to destenation) and the shortest road to this point that is corently known(empty in the begining)
     board = {}
     for row in xrange(46):
         for col in xrange(47):
+            board[(row, col)] = {'index': (row, col), 'cost': 10 ** 99, 'value': 10 ** 99, 'road': []}
+    # sets the drones location to be 'cost' 0 and 'value' 0
 
-            board[(row,col)] = {'index':(row,col),'cost':10**99,'value':10**99,'road':[]}
-    #sets the drones location to be 'cost' 0 and 'value' 0
-
-    board[(drone.location.row,drone.location.col)]['cost'] = 0
-    board[(drone.location.row,drone.location.col)]['value'] = 0+abs(drone.location.row-destination[0])+abs(drone.location.col-destination[-1])
-    #creates a list of points we know how to get to and that are not yet checked, this list will be sorted by the points values
-    needs_checking = [board[(drone.location.row,drone.location.col)]]
-    #next_to is a list of the 4 dirctions, in an efficnt order acourding to your team
+    board[(drone.location.row, drone.location.col)]['cost'] = 0
+    board[(drone.location.row, drone.location.col)]['value'] = 0 + abs(drone.location.row - destination[0]) + abs(
+        drone.location.col - destination[-1])
+    # creates a list of points we know how to get to and that are not yet checked, this list will be sorted by the points values
+    needs_checking = [board[(drone.location.row, drone.location.col)]]
+    # next_to is a list of the 4 dirctions, in an efficnt order acourding to your team
     if game.get_myself().id == 0:
-        next_to =[(0,-1),(1,0),(0,1),(-1,0)]
+        next_to = [(0, -1), (1, 0), (0, 1), (-1, 0)]
     else:
-        next_to =[(0,1),(1,0),(0,-1),(-1,0)]
+        next_to = [(0, 1), (1, 0), (0, -1), (-1, 0)]
     while True:
-        tile = needs_checking[0] #seting the tile with the best value to be the one we are checking
-        if tile['index'] == destination: #if this tile is the destination we return the road we found to this tile
+        tile = needs_checking[0]  # seting the tile with the best value to be the one we are checking
+        if tile['index'] == destination:  # if this tile is the destination we return the road we found to this tile
             return board[destination]['road']
-        needs_checking = needs_checking[1:] #taking the tile we are checking out of needs_checking
+        needs_checking = needs_checking[1:]  # taking the tile we are checking out of needs_checking
         # we are checking all the tiles that next to the tile we are checking and adding the road and the cost for this next_to_tile if its efficnt to go therew tile
         for i in next_to:
-            row = tile['index'][0]+i[0]
-            col = tile['index'][-1]+i[-1]
-            if row >= 0 and row <= 45 and col >= 0 and col <= 46: #checking that the next_to_tile is on the board
-                potential_cost = tile['cost']+danger_board[(row,col)]*DANGER_COST+1 #potential_cost is the cost to get to tile + the danger level times DANGER_COST + the turns it will take to get to this next tile (1)
-                if potential_cost < board[(row ,col)]['cost']: #checkes if the potential_cost is lower then the cost that the tile hes
-                    b=0 #checkes it updates the new tile onl once
-                    board[(row,col)]['cost'] = potential_cost #setting the new cost
-                    board[(row,col)]['value'] = potential_cost+abs(row-destination[0])+abs(col-destination[-1]) #setting the new value
-                    board[(row,col)]['road'] = tile['road']+[(row,col)] #setting the new road
-                    for itsplace,unchecked in enumerate(needs_checking[:]): #looping threw the needs_checking list and the indexes of it
-                        if b==0 and unchecked['value'] >= board[(row,col)]['value']: #if we looped and got to a place in list that the new tile hes less value(better):
-                            needs_checking.insert(itsplace,board[(row,col)]) #we insert the the new_tile into the needs_checking list
-                            b=1 #we make shor we wont add or insert it again
-                        if unchecked['index'] == (row,col) and unchecked['value']!=board[(row,col)]['value']: #if the unchecked tile is a older version of the new_tile
-                            needs_checking.remove(unchecked) #we remove it
-                    if b==0: #if we didnt inserted the new_tile yet (it hes the worst value)
-                        needs_checking.append(board[(row,col)]) #we append it ate the end of the needs_checking list
+            row = tile['index'][0] + i[0]
+            col = tile['index'][-1] + i[-1]
+            if row >= 0 and row <= 45 and col >= 0 and col <= 46:  # checking that the next_to_tile is on the board
+                potential_cost = tile['cost'] + danger_board[(row,
+                                                              col)] * DANGER_COST + 1  # potential_cost is the cost to get to tile + the danger level times DANGER_COST + the turns it will take to get to this next tile (1)
+                if potential_cost < board[(row, col)][
+                    'cost']:  # checkes if the potential_cost is lower then the cost that the tile hes
+                    b = 0  # checkes it updates the new tile onl once
+                    board[(row, col)]['cost'] = potential_cost  # setting the new cost
+                    board[(row, col)]['value'] = potential_cost + abs(row - destination[0]) + abs(
+                        col - destination[-1])  # setting the new value
+                    board[(row, col)]['road'] = tile['road'] + [(row, col)]  # setting the new road
+                    for itsplace, unchecked in enumerate(
+                            needs_checking[:]):  # looping threw the needs_checking list and the indexes of it
+                        if b == 0 and unchecked['value'] >= board[(row, col)][
+                            'value']:  # if we looped and got to a place in list that the new tile hes less value(better):
+                            needs_checking.insert(itsplace, board[
+                                (row, col)])  # we insert the the new_tile into the needs_checking list
+                            b = 1  # we make shor we wont add or insert it again
+                        if unchecked['index'] == (row, col) and unchecked['value'] != board[(row, col)][
+                            'value']:  # if the unchecked tile is a older version of the new_tile
+                            needs_checking.remove(unchecked)  # we remove it
+                    if b == 0:  # if we didnt inserted the new_tile yet (it hes the worst value)
+                        needs_checking.append(board[(row, col)])  # we append it ate the end of the needs_checking list
