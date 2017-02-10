@@ -216,7 +216,7 @@ def handle_pirates(game, game_state, battles):
         for battle in battles:
             for pirate in pirates:
                 if math.ceil((pirate.distance(battle._location_pirate) - 2) / 2.0) <= \
-                        battle._turns_remaining and not battle._win:
+                        battle._turns_remaining -1:
                     game.debug("Pirate: " + str(pirate.id) + " is helping with a battle!")
                     sail_options = game.get_sail_options(pirate, battle._location_pirate)
                     if not pirate in semi_used_pirates: game.set_sail(pirate, sail_options[len(sail_options) / 2])
