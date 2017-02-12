@@ -308,28 +308,6 @@ def handle_pirates(game, game_state, battles):
                 pirates.remove(move.get_aircraft())
                 islands.remove(move.get_location())
 
-            # Sends pirates after enemy pirates
-            elif len(enemy_pirates) > 0:
-                # If controlling islands then send the pirate that is closest to one of
-                # the islands towards an enemy pirate that is also closest to the island
-                # Only calculates once and passes over all pirates
-                if len(my_islands) > 0 and attack_pirates_relative_to_islands == 0:
-                    for pirate in pirates:
-                        closest_island = best_move([pirate], my_islands)
-                        closest_enemy = best_move(game.get_enemy_living_pirates(), [closest_island.get_location()])
-                        if pirate.distance(closest_enemy.get_aircraft()) < 10:
-                            sailing = optimize_pirate_moves(game, pirate, closest_enemy.get_aircraft().location)
-                            if not pirate in semi_used_pirates: game.set_sail(pirate, sailing)
-                            pirates.remove(pirate)
-                    attack_pirates_relative_to_islands += 1
-                # If not controlling islands then choose the pirate and enemy pirate with smallest distance between them
-                # and send him there, calculates for one pirate each pass
-                else:
-                    move = best_move(pirates, enemy_pirates)
-                    sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
-                    if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
-                    pirates.remove(move.get_aircraft())
-                    enemy_pirates.remove(move.get_location())
 
             # Chooses the pirate that is closest to an enemy drone and sends him towards that drone
             elif len(enemy_drones) > 0:
