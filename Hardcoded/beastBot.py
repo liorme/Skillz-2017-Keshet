@@ -408,7 +408,7 @@ def handle_drones(game, game_state):
             if plan["steps"] != [] and plan["id"] in living_drones_ids:
                 drone = game.get_my_drone_by_id(plan["id"])
                 next_step = Location(plan["steps"][0][0], plan["steps"][0][-1])
-                if drone in drones:
+                if drone in drones[:]:
                     drones.remove(drone)
                     game.set_sail(drone, next_step)
                 plan["steps"] = plan["steps"][1:]
