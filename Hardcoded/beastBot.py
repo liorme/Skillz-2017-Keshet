@@ -185,7 +185,6 @@ def handle_pirates(game, game_state, battles):
     islands = game.get_not_my_islands()
     enemy_pirates = game.get_enemy_living_pirates()
     enemy_drones = game.get_enemy_living_drones()
-    drones_near_city = filter(lambda x: x.distance(game.get_enemy_cities()[0]) < 12, enemy_drones)
     enemy_health = {}
     semi_used_pirates = []
 
@@ -205,7 +204,8 @@ def handle_pirates(game, game_state, battles):
                 if is_new_battle(attack):
                     create_new_battle(attack, game)
                 pirates.remove(attack.get_attacker())
-
+    
+    drones_near_city = filter(lambda x: x.distance(game.get_enemy_cities()[0]) < 12, enemy_drones)
     # Try helping battles, but ignore battles when rushing
     if game_state != "RUSH":
         for battle in battles:
