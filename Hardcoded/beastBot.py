@@ -1,5 +1,6 @@
 from Pirates import *
 import math
+import random
 
 """
 REMEMBER: Change back one STACK to CONTROL
@@ -381,9 +382,25 @@ def handle_drones(game, game_state):
         escaping_info = best_move(drones, enemy_pirates)
         if escaping_info.get_dist() > 6:
             break
-        row = min(rows-1,max(2*escaping_info.get_aircraft().location.row - escaping_info.get_location().location.row,0))
-        col = min(cols-1,max(2*escaping_info.get_aircraft().location.col - escaping_info.get_location().location.col,0))
-        sail_options = game.get_sail_options(escaping_info.get_aircraft(), Location(row,col))
+        x = escaping_info.get_aircraft().location.row
+        y = escaping_info.get_aircraft().location.col
+        options =[(x-1,y),(x+1,y),(x,y-1), (x,y+1)]
+        for p in options[:]:
+            if p[0] < 0 or p[0] > rows or p[1] < 0 or p[1] > cols:
+                options.remove(p)
+                continue
+            if best_move([Location(p[0],p[1])], enemy_pirates).get_dist() < escaping_info.get_dist():
+                options.remove(p)
+                continue
+        if len(options) == 0:
+            row = min(rows - 1,
+                      max(2 * escaping_info.get_aircraft().location.row - escaping_info.get_location().location.row, 0))
+            col = min(cols - 1,
+                      max(2 * escaping_info.get_aircraft().location.col - escaping_info.get_location().location.col, 0))
+            goto = (row,col)
+        else:
+            goto = random.choice(options)
+        sail_options = game.get_sail_options(escaping_info.get_aircraft(), Location(goto[0],goto[1]))
         sailing = optimize_drone_moves(sail_options)
         game.set_sail(escaping_info.get_aircraft(), sailing)
         drones.remove(escaping_info.get_aircraft())
