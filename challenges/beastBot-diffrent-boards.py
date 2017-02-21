@@ -148,24 +148,16 @@ def do_turn(game):
     # choose the game state:
     if game.get_turn() < EARLY_TURNS:
         game_state = "EARLY"
+    elif game.get_turn() > game.get_max_turns()/3 and game.get_my_score() <= game.get_max_points()/2:
+        game_state = "STACK"
     elif (len(
-            game.get_my_living_drones()) > MIN_DRONES_ALIVE_AND_POINTS_TO_RUSH - game.get_my_score()
+            game.get_my_living_drones()) > game.get_max_points()*1.4 - game.get_my_score()
           or game.get_max_turns() - game.get_turn() < MAX_TIME_TO_RUSH) or (
                         game_state == "RUSH" and len(
                     drones_in_range) > MIN_DRONES_ALIVE_TO_CONTINUE_RUSH or game.get_max_turns() - game.get_turn() < MAX_TIME_TO_RUSH):
-        game_state = "CONTROL"
-    elif (best_move(game.get_enemy_living_pirates(),
-                    game.get_my_cities()).get_dist() < MIN_PIRATE_CITY_DIST_TO_STACK) or (
-                    game_state == "STACK" and best_move(game.get_enemy_living_pirates(),
-                                                        game.get_my_cities()).get_dist() < MIN_PIRATE_CITY_DIST_TO_CONT_STACK):
-        stacking += 1
-        if stacking >= 15:
-            game_state = "CONTROL"
-        else:
-            game_state = "CONTROL"
+        game_state = "RUSH"
     else:
         game_state = "CONTROL"
-        stacking = max(0, stacking - 1)
 
     game.debug(game_state)
 
@@ -240,7 +232,7 @@ def handle_pirates(game, game_state, battles):
                 i += 1
 
     # Try to get islands, kill drones, kill pirates, and gain map control in general
-    elif game_state == "STACK" or game_state == "CONTROL" or game_state == "RUSH":
+    elif game_state == "STACK" or game_state == "CONTROL":
         protect_drones = 0
         defend_islands = 0
         check_battles = 0
@@ -503,13 +495,13 @@ def handle_drones(game, game_state):
 
     # Find the average position of my pirates and the left/right wall,
     # and send the drones there. If enemy pirate is close to point then move point closer to spawn point
-    if game_state == "STACK" and False:
+    if game_state == "STACK":
         dest_row = 0
         dest_col = 0
         for pirate in game.get_my_living_pirates():
             dest_row += pirate.location.row
             dest_col += pirate.location.col
-        if len(game.get_my_living_pirates) > 0:
+        if len(game.get_my_living_pirates()) > 0:
             dest_row = dest_row / len(game.get_my_living_pirates())
             dest_col = dest_col / len(game.get_my_living_pirates())
         else:
@@ -546,7 +538,7 @@ def handle_drones(game, game_state):
                 game.set_sail(drone, sail)
 
     # Just go towards my city
-    elif game_state == "RUSH" or game_state == "CONTROL":
+    elif game_state == "RUSH":
         for drone in drones:
             destination = game.get_my_cities()[0]
             sail_options = game.get_sail_options(drone, destination)
