@@ -1,4 +1,3 @@
-hey
 from Pirates import *
 import math
 
@@ -470,7 +469,7 @@ def handle_drones(game, game_state):
                 elif abs(drone.location.row - plan["steps"][0][0]) == 0 and abs(
                                 drone.location.col - plan["steps"][0][1]) == 1:
                     continue
-                elif game.get_time_remaining() > 0:
+                elif game.get_time_remaining() > -40:
                     drones_plans.remove(plan)
                     new_plan = GPS(game, drone, game.get_my_cities()[0].location)
                     drones_plans.append({"id": drone.id, "steps": new_plan})
@@ -486,6 +485,39 @@ def handle_drones(game, game_state):
                     drones.remove(drone)
                     game.set_sail(drone, next_step)
                 plan["steps"] = plan["steps"][1:]
+
+    # Find the average position of my pirates and the left/right wall,
+    # and send the drones there. If enemy pirate is close to point then move point closer to spawn point
+    if game_state == "STACK" and False:
+        dest_row = 0
+        dest_col = 0
+        for pirate in game.get_my_living_pirates():
+            dest_row += pirate.location.row
+            dest_col += pirate.location.col
+        if len(game.get_my_living_pirates) > 0:
+            dest_row = dest_row / len(game.get_my_living_pirates())
+            dest_col = dest_col / len(game.get_my_living_pirates())
+        else:
+            dest_row = dest_row/2
+            dest_col = dest_col/2
+        if game.get_myself().id == 0:
+            ave_destination = Location(dest_row, min(13, dest_col))
+        else:
+            ave_destination = Location(dest_row, max(33, dest_col))
+        drone_move = best_move(game.get_enemy_living_pirates(), [ave_destination])
+        if drone_move.get_dist() < 7:
+            if ave_destination.row + 6 <= rows:
+                ave_destination.row = ave_destination.row + 6
+            else:
+                ave_destination.row = rows
+            if ave_destination.col - 1 - game.get_myself().id * 2 >= 0 \
+                    and ave_destination.col - (1 - game.get_myself().id * 2) * 6 <= cols:
+                ave_destination.col = ave_destination.col - (1 - game.get_myself().id * 2) * 6
+            elif game.get_myself().id == 0:
+                ave_destination.col = 0
+            else:
+                ave_destination.col = cols
+        game.debug(ave_destination)
 
         # For each drone if the distance to the city is way smaller then the distance to stack point then go to city
         for drone in drones:
