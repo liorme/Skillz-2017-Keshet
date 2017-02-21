@@ -146,20 +146,19 @@ def do_turn(game):
                 danger_board[(dirow, dicol)] += 1
 
     # choose the game state:
-    if game.get_turn() < EARLY_TURNS:
+    if game.get_turn() < EARLY_TURNS and len(game.get_all_islands()) > 1:
         game_state = "EARLY"
-    elif game.get_turn() > game.get_max_turns()/3 and game.get_my_score() <= game.get_max_points()/2:
-        game_state = "STACK"
     elif (len(
             game.get_my_living_drones()) > game.get_max_points()*1.4 - game.get_my_score()
           or game.get_max_turns() - game.get_turn() < MAX_TIME_TO_RUSH) or (
                         game_state == "RUSH" and len(
                     drones_in_range) > MIN_DRONES_ALIVE_TO_CONTINUE_RUSH or game.get_max_turns() - game.get_turn() < MAX_TIME_TO_RUSH):
         game_state = "RUSH"
+    elif game.get_turn() > game.get_max_turns()/3 and game.get_my_score() <= math.ceil(game.get_max_points()/2):
+        game_state = "STACK"
     else:
         game_state = "CONTROL"
-
-    game.debug(game_state)
+    game.debug(game.get_max_drones_count())
 
     update_battles(game)
     handle_pirates(game, game_state, battles)
@@ -538,7 +537,7 @@ def handle_drones(game, game_state):
                 game.set_sail(drone, sail)
 
     # Just go towards my city
-    elif game_state == "RUSH":
+    elif game_state == "RUSH" or game_state == "CONTROL":
         for drone in drones:
             destination = game.get_my_cities()[0]
             sail_options = game.get_sail_options(drone, destination)
