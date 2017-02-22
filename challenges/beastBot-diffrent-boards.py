@@ -94,6 +94,8 @@ DANGER_COST = 5
 
 RUSH_RADIUS = 8
 
+DEBUG = False
+
 
 def do_turn(game):
     global battles, enemy_drones_board, full_tiles, danger_board
@@ -158,7 +160,7 @@ def do_turn(game):
         game_state = "STACK"
     else:
         game_state = "CONTROL"
-    game.debug(game.get_max_drones_count())
+    debug(game,game.get_max_drones_count())
 
     update_battles(game)
     handle_pirates(game, game_state, battles)
@@ -166,14 +168,14 @@ def do_turn(game):
 
     """
     for battle in battles:
-        game.debug("~~~~~~~~~~~~~")
-        game.debug(battle._my_pirates)
-        game.debug(battle._enemy_pirates)
-        game.debug(battle._location_pirate)
-        game.debug("Win: " + str(battle._win))
-        game.debug("Turns remaining: " + str(battle._turns_remaining))
+        debug(game,"~~~~~~~~~~~~~")
+        debug(game,battle._my_pirates)
+        debug(game,battle._enemy_pirates)
+        debug(game,battle._location_pirate)
+        debug(game,"Win: " + str(battle._win))
+        debug(game,"Turns remaining: " + str(battle._turns_remaining))
     """
-    game.debug("Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
+    debug(game,"Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
 
 
 def handle_pirates(game, game_state, battles):
@@ -212,7 +214,7 @@ def handle_pirates(game, game_state, battles):
             for pirate in pirates:
                 if math.ceil((pirate.distance(battle._location_pirate) - 2) / 2.0) <= \
                                 battle._turns_remaining - 1:
-                    # game.debug("Pirate: " + str(pirate.id) + " is helping with a battle!")
+                    # debug(game,"Pirate: " + str(pirate.id) + " is helping with a battle!")
                     sail_options = game.get_sail_options(pirate, battle._location_pirate)
                     if not pirate in semi_used_pirates: game.set_sail(pirate, sail_options[len(sail_options) / 2])
                     pirates.remove(pirate)
@@ -291,10 +293,10 @@ def handle_pirates(game, game_state, battles):
                     if not best_blocking_pirate_move[0] in semi_used_pirates: game.set_sail(
                         best_blocking_pirate_move[0], sailing)
                     pirates.remove(best_blocking_pirate_move[0])
-                    game.debug("ISLAND DEFENDED:")
-                    game.debug("My Pirate " + str(best_blocking_pirate_move[0]))
-                    game.debug("Enemy pirate: " + str(best_blocking_pirate_move[1]))
-                    game.debug("Island defended: " + str(best_blocking_pirate_move[3]))
+                    debug(game,"ISLAND DEFENDED:")
+                    debug(game,"My Pirate " + str(best_blocking_pirate_move[0]))
+                    debug(game,"Enemy pirate: " + str(best_blocking_pirate_move[1]))
+                    debug(game,"Island defended: " + str(best_blocking_pirate_move[3]))
                 defend_islands += 1
 
             elif defend == 0 and len(enemy_drones) > 6:
@@ -454,7 +456,7 @@ def handle_drones(game, game_state):
         game.set_sail(escaping_info.get_aircraft(), sailing)
         drones.remove(escaping_info.get_aircraft())
         living_drones_ids.remove(escaping_info.get_aircraft().id)
-        # game.debug("ESCAPE")
+        # debug(game,"ESCAPE")
 
     if game_state == "CONTROL":
         # making new plans
@@ -523,7 +525,7 @@ def handle_drones(game, game_state):
                 ave_destination.col = 0
             else:
                 ave_destination.col = cols
-        game.debug(ave_destination)
+        debug(game,ave_destination)
 
         # For each drone if the distance to the city is way smaller then the distance to stack point then go to city
         for drone in drones:
@@ -755,3 +757,9 @@ def GPS(game, drone, destination):
                             needs_checking.remove(unchecked)  # we remove it
                     if b == 0:  # if we didnt inserted the new_tile yet (it hes the worst value)
                         needs_checking.append(board[(row, col)])  # we append it ate the end of the needs_checking list
+						
+						
+						
+def debug(game, message):
+	if DEBUG == True:
+		game.debug(message)
