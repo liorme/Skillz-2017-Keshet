@@ -446,6 +446,7 @@ def handle_drones(game, game_state):
         game.set_sail(escaping_info.get_aircraft(), sailing)
         drones.remove(escaping_info.get_aircraft())
         living_drones_ids.remove(escaping_info.get_aircraft().id)
+        # debug("ESCAPE")
 
     if game_state == "CONTROL":
         # making new plans
