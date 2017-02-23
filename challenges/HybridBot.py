@@ -79,11 +79,6 @@ drones_plans = []
 # Constants:
 ENEMY_DRONE_REMEMBER_FACTOR = 0.99
 ENEMY_PIRATE_REMEMBER_FACTOR = 0.9
-MAX_TIME_TO_RUSH = 50
-MIN_DRONES_ALIVE_AND_POINTS_TO_RUSH = 29
-MIN_DRONES_ALIVE_TO_CONTINUE_RUSH = 10
-MIN_PIRATE_CITY_DIST_TO_STACK = 7
-MIN_PIRATE_CITY_DIST_TO_CONT_STACK = 9
 EARLY_TURNS = 17
 PIRATE = 0
 DRONE = 1
@@ -736,8 +731,8 @@ def GPS(game, drone, destination):
                     board[(row, col)]['road'] = tile['road'] + [(row, col)]  # setting the new road
                     for itsplace, unchecked in enumerate(
                             needs_checking[:]):  # looping threw the needs_checking list and the indexes of it
-                        if b == 0 and unchecked['value'] >= board[(row, col)][
-                            'value']:  # if we looped and got to a place in list that the new tile hes less value(better):
+                        # if we looped and got to a place in list that the new tile hes less value(better):
+                        if b == 0 and unchecked['value'] >= board[(row, col)]['value']:
                             needs_checking.insert(itsplace, board[
                                 (row, col)])  # we insert the the new_tile into the needs_checking list
                             b = 1  # we make shor we wont add or insert it again
@@ -754,3 +749,25 @@ def is_defensive(game):
         if Location(loc[0], loc[1]).distance(game.get_my_cities()[0]) > 5:
             highest.remove(loc)
     return len(highest) > 0
+
+
+def is_stacking():
+    # get all spaces that have a 0.8 or above drone occurrence
+    highest = filter(lambda x: enemy_drones_board[x] > 0.8, enemy_drones_board)
+    area = {}
+    # calculate drone passing density in area
+    for loc in highest[:]:
+        near = [(loc[0]+x[0], loc[1]+x[1]) for x in range3]
+        near_in_range = filter(lambda x: 0 <= x[0] < rows and 0 <= x[1] < cols, near)
+        area[loc] = sum(map(lambda x: enemy_drones_board[x], near_in_range))
+    # find place with biggest area density
+    max = -1
+    max_loc = (-1, -1)
+    for loc in area:
+        if area[loc] > max:
+            max = area[loc]
+            max_loc = loc
+        # if two spaces have the same drone area density, pick the one with highest drone density on it
+        if area[loc] == max and enemy_drones_board[loc] > enemy_drones_board[max_loc]:
+            max_loc = loc
+    return max_loc
