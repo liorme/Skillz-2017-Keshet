@@ -211,15 +211,16 @@ def handle_pirates(game, game_state, battles):
 
     # If early in the game rush bottom middle island with 4 pirates and upper right/left island with 1 pirate
     if game_state == "EARLY":
-        i = 0
-        for pirate in pirates:
-            if i == 0:
-                sail_options = game.get_sail_options(pirate, all_islands[1 + game.get_myself().id])
+        if len(islands) > 0:
+            i = 0
+            for pirate in pirates:
+                if i == 0:
+                    idx = min(len(islands)-1, 1 + game.get_myself().id)
+                else:
+                    idx = min(len(islands)-1, 3)
+                sail_options = game.get_sail_options(pirate, all_islands[idx])
                 game.set_sail(pirate, sail_options[len(sail_options) / 2])
-            else:
-                sail_options = game.get_sail_options(pirate, all_islands[3])
-                game.set_sail(pirate, sail_options[len(sail_options) / 2])
-            i += 1
+                i += 1
 
     # Try to get islands, kill drones, kill pirates, and gain map control in general
     elif game_state == "STACK" or game_state == "CONTROL" or game_state == "RUSH":
@@ -482,8 +483,8 @@ def handle_drones(game, game_state):
         for pirate in game.get_my_living_pirates():
             dest_row += pirate.location.row
             dest_col += pirate.location.col
-        dest_row = dest_row / len(game.get_my_living_pirates())
-        dest_col = dest_col / len(game.get_my_living_pirates())
+        dest_row = dest_row / max(len(game.get_my_living_pirates()),2)
+        dest_col = dest_col / max(len(game.get_my_living_pirates()),2)
         if game.get_myself().id == 0:
             ave_destination = Location(dest_row, min(math.floor(rows * 0.28), dest_col))
         else:
@@ -501,6 +502,8 @@ def handle_drones(game, game_state):
                 ave_destination.col = 0
             else:
                 ave_destination.col = cols
+        ave_destination.row = int(ave_destination.row)
+        ave_destination.col = int(ave_destination.col)
         game.debug(ave_destination)
 
         # For each drone if the distance to the city is way smaller then the distance to stack point then go to city
@@ -718,7 +721,7 @@ def GPS(game, drone, destination):
         for i in next_to:
             row = tile['index'][0] + i[0]
             col = tile['index'][-1] + i[-1]
-            if 0 <= row <= rows and 0 <= col < cols:  # checking that the next_to_tile is on the board
+            if 0 <= row < rows and 0 <= col < cols:  # checking that the next_to_tile is on the board
                 # potential_cost is the cost to get to tile + the danger level times DANGER_COST plus
                 # the turns it will take to get to this next tile (1)
                 potential_cost = tile['cost'] + danger_board[(row, col)] * DANGER_COST + 1
