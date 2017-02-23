@@ -1,5 +1,6 @@
 from Pirates import *
 import math
+import random
 
 """
 REMEMBER: Change back one STACK to CONTROL
@@ -95,9 +96,6 @@ def do_turn(game):
     global ave_destination
     global rows, cols
     global set
-    global range3
-
-    city = game.get_my_cities()[0]
 
     # initialize variables for the first run:
     drones = game.get_my_living_drones()
@@ -145,13 +143,7 @@ def do_turn(game):
 
 def choose_state(game):
     global game_state
-
-    city = game.get_my_cities()[0]
-    drones_in_range = []
     drones = game.get_my_living_drones()
-    for drone in drones:
-        if drone.distance(city) < 11:
-            drones_in_range.append(drone)
 
     score_to_win = game.get_max_points()
     my_score = game.get_my_score()
@@ -227,7 +219,7 @@ def handle_pirates(game, game_state, battles):
                 i += 1
 
     # Try to get islands, kill drones, kill pirates, and gain map control in general
-    elif game_state == "STACK" or game_state == "CONTROL" or game_state == "RUSH":
+    elif game_state == "STACK" or game_state == "CONTROL":
         protect_drones = 0
         defend_islands = 0
         check_battles = 0
@@ -406,7 +398,6 @@ def handle_pirates(game, game_state, battles):
                 sailing = optimize_pirate_moves(game, pirate, stack_location)
                 if not pirate in semi_used_pirates: game.set_sail(pirate, sailing)
 
-
 def handle_drones(game, game_state):
     global drones_plans
     global rows, cols
@@ -417,7 +408,7 @@ def handle_drones(game, game_state):
 
     # dodging enemy pirates while there are drones in danger
     checked = False
-    while game_state != "RUSH":
+    while True:
         while not checked:
             drone_move = best_move(drones, game.get_my_cities())
             if drone_move.get_dist() < 8:
@@ -432,16 +423,29 @@ def handle_drones(game, game_state):
         escaping_info = best_move(drones, enemy_pirates)
         if escaping_info.get_dist() > 6:
             break
-        row = min(rows - 1,
-                  max(2 * escaping_info.get_aircraft().location.row - escaping_info.get_location().location.row, 0))
-        col = min(cols - 1,
-                  max(2 * escaping_info.get_aircraft().location.col - escaping_info.get_location().location.col, 0))
-        sail_options = game.get_sail_options(escaping_info.get_aircraft(), Location(row, col))
+        x = escaping_info.get_aircraft().location.row
+        y = escaping_info.get_aircraft().location.col
+        options = [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+        for p in options[:]:
+            if p[0] < 0 or p[0] > rows or p[1] < 0 or p[1] > cols:
+                options.remove(p)
+                continue
+            if best_move([Location(p[0], p[1])], enemy_pirates).get_dist() < escaping_info.get_dist():
+                options.remove(p)
+                continue
+        if len(options) == 0:
+            row = min(rows - 1,
+                      max(2 * escaping_info.get_aircraft().location.row - escaping_info.get_location().location.row, 0))
+            col = min(cols - 1,
+                      max(2 * escaping_info.get_aircraft().location.col - escaping_info.get_location().location.col, 0))
+            goto = (row, col)
+        else:
+            goto = random.choice(options)
+        sail_options = game.get_sail_options(escaping_info.get_aircraft(), Location(goto[0], goto[1]))
         sailing = optimize_drone_moves(sail_options, game)
         game.set_sail(escaping_info.get_aircraft(), sailing)
         drones.remove(escaping_info.get_aircraft())
         living_drones_ids.remove(escaping_info.get_aircraft().id)
-        # debug(game, "ESCAPE")
 
     if game_state == "CONTROL":
         # making new plans
@@ -521,13 +525,15 @@ def handle_drones(game, game_state):
                 sail = optimize_drone_moves(sail_options, game)
                 game.set_sail(drone, sail)
 
+
     # Just go towards my city
-    elif game_state == "RUSH":
+    elif game_state == "RUSH" or game_state == "CONTROL":
         for drone in drones:
             destination = game.get_my_cities()[0]
             sail_options = game.get_sail_options(drone, destination)
             sail = optimize_drone_moves(sail_options, game)
             game.set_sail(drone, sail)
+
 
 
 def try_attack(pirate, enemy_health, enemy_drones, game):
@@ -751,6 +757,8 @@ def GPS(game, drone, destination):
 
 
 def is_defensive(game):
+    if len(game.get_my_cities()) == 0:
+        return False
     highest = filter(lambda x: danger_board[x] > 0.91, danger_board)
     for loc in highest[:]:
         if Location(loc[0], loc[1]).distance(game.get_my_cities()[0]) > 5:
