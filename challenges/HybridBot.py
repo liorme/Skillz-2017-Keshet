@@ -87,7 +87,7 @@ DANGER_COST = 5
 
 RUSH_RADIUS = 8
 
-DEBUG = True
+DEBUG = False
 
 
 def do_turn(game):
@@ -97,10 +97,6 @@ def do_turn(game):
     global set
     global range3
 
-    city = game.get_my_cities()[0]
-
-    # initialize variables for the first run:
-    drones = game.get_my_living_drones()
     if not set:
         rows = game.get_row_count()
         cols = game.get_col_count()
@@ -146,7 +142,11 @@ def do_turn(game):
 def choose_state(game):
     global game_state
 
-    city = game.get_my_cities()[0]
+    if len(game.get_my_cities()) > 0:
+        city = game.get_my_cities()[0]
+    else:
+        game_state = "CONTROL"
+        return
     drones_in_range = []
     drones = game.get_my_living_drones()
     for drone in drones:
@@ -201,6 +201,23 @@ def handle_pirates(game, game_state, battles):
                 if is_new_battle(attack):
                     create_new_battle(attack, game)
                 pirates.remove(attack.get_attacker())
+
+    # If I don't have a city, just guard and kill drones
+    if len(game.get_my_cities()) == 0:
+        for pirate in pirates[:]:
+            move = best_move([pirate], enemy_drones)
+            if move.get_aircraft() == 0 or move.get_dist() > 6:
+                sail_options = game.get_sail_options(pirate, game.get_enemy_cities()[0])
+                game.set_sail(pirate, sail_options[0])
+                pirates.remove(pirate)
+                continue
+            sailing = game.get_sail_options(pirate, move.get_location())
+            game.set_sail(move.get_aircraft(), sailing[0])
+            pirates.remove(move.get_aircraft())
+            enemy_drones.remove(move.get_location())
+
+
+
 
     # Try helping battles, but ignore battles when rushing
     if game_state != "RUSH":
