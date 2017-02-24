@@ -144,6 +144,7 @@ def do_turn(game):
 
 def choose_state(game):
     global game_state
+    global turns_to_rush
 
     if len(game.get_my_cities()) == 0:
         game_state = "CONTROL"
