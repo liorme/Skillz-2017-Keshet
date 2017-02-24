@@ -86,8 +86,11 @@ NO_ATTACK = -1
 DANGER_COST = 5
 
 RUSH_RADIUS = 8
+TURNS_TO_FINISH_STACK = 4
 
 DEBUG = False
+
+turns_to_rush = TURNS_TO_FINISH_STACK
 
 
 def do_turn(game):
@@ -142,16 +145,11 @@ def do_turn(game):
 def choose_state(game):
     global game_state
 
-    if len(game.get_my_cities()) > 0:
-        city = game.get_my_cities()[0]
-    else:
+    if len(game.get_my_cities()) == 0:
         game_state = "CONTROL"
         return
-    drones_in_range = []
+
     drones = game.get_my_living_drones()
-    for drone in drones:
-        if drone.distance(city) < 11:
-            drones_in_range.append(drone)
 
     score_to_win = game.get_max_points()
     my_score = game.get_my_score()
@@ -163,7 +161,11 @@ def choose_state(game):
     elif (game_state == "STACK" or game_state == "RUSH") and \
             ((len(drones) >= diff*1.7 or len(drones)==game.get_max_drones_count()) or \
             (game_state == "RUSH" and len(drones) > 5)):
-        game_state = "RUSH"
+        if turns_to_rush == 0:
+            game_state = "RUSH"
+        else:
+            game_state == "STACK"
+            turns_to_rush -= 1
     elif is_defensive(game) or game_state == "STACK":
         game_state = "STACK"
     else:
@@ -244,7 +246,7 @@ def handle_pirates(game, game_state, battles):
                 i += 1
 
     # Try to get islands, kill drones, kill pirates, and gain map control in general
-    elif game_state == "STACK" or game_state == "CONTROL" or game_state == "RUSH":
+    elif game_state == "STACK" or game_state == "CONTROL":
         protect_drones = 0
         defend_islands = 0
         check_battles = 0
@@ -787,14 +789,14 @@ def GPS(game, drone, destination):
 def is_defensive(game):
     highest = filter(lambda x: danger_board[x] > 0.91, danger_board)
     for loc in highest[:]:
-        if Location(loc[0], loc[1]).distance(game.get_my_cities()[0]) > 5:
+        if Location(loc[0], loc[1]).distance(game.get_my_cities()[0]) > 3:
             highest.remove(loc)
     return len(highest) > 0
 
 
 def is_stacking():
     # get all spaces that have a 0.8 or above drone occurrence
-    highest = filter(lambda x: enemy_drones_board[x] > 0.8, enemy_drones_board)
+    highest = filter(lambda x: enemy_drones_board[x] > 0.91, enemy_drones_board)
     area = {}
     # calculate drone passing density in area
     for loc in highest[:]:
@@ -814,5 +816,5 @@ def is_stacking():
     return max_loc
 
 def debug(game, message):
-    if DEBUG == True:
+    if DEBUG:
         game.debug(message)
