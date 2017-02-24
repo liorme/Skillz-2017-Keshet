@@ -161,10 +161,10 @@ def choose_state(game):
     if game.get_turn() < EARLY_TURNS:
         game_state = "EARLY"
     elif (game_state == "STACK" or game_state == "RUSH") and \
-            ((len(drones) >= diff*1.4 or len(drones)==game.get_max_drones_count()) or \
+            ((len(drones) >= diff*1.7 or len(drones)==game.get_max_drones_count()) or \
             (game_state == "RUSH" and len(drones) > 5)):
         game_state = "RUSH"
-    elif is_defensive(game):
+    elif is_defensive(game) or game_state == "STACK":
         game_state = "STACK"
     else:
         game_state = "CONTROL"
@@ -455,7 +455,7 @@ def handle_drones(game, game_state):
         game.set_sail(escaping_info.get_aircraft(), sailing)
         drones.remove(escaping_info.get_aircraft())
         # living_drones_ids.remove(escaping_info.get_aircraft().id)
-        debug(game, "ESCAPE: "+str(escaping_info.get_aircraft()))
+        # debug(game, "ESCAPE: "+str(escaping_info.get_aircraft()))
 
     if game_state == "CONTROL":
         # making new plans
@@ -490,7 +490,6 @@ def handle_drones(game, game_state):
             if plan["steps"] != [] and plan["id"] in living_drones_ids:
                 drone = game.get_my_drone_by_id(plan["id"])
                 next_step = Location(plan["steps"][0][0], plan["steps"][0][-1])
-                debug(game, "Drone "+str(plan["id"])+' to '+str(next_step))
                 if drone in drones[:]:
                     drones.remove(drone)
                     game.set_sail(drone, next_step)
