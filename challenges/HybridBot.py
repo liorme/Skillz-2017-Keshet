@@ -549,7 +549,7 @@ def handle_drones(game, game_state):
     elif game_state == "RUSH":
         near_drones = check_near_stack_drones(game)
         if len(near_drones) > 0:
-            stack = get_curret_stack_location(game)
+            stack = get_current_stack_location(game)
             for drone in near_drones:
                 sail_options = game.get_sail_options(drone, stack)
                 sail = optimize_drone_moves(sail_options, game)
@@ -563,9 +563,11 @@ def handle_drones(game, game_state):
 
 
 #~~~UTILITY~~~
+
+#finds drones near the current stack location, in a range determined by WAIT_WITH_RUSH_FOR_DRONES_IN_RANGE
 def check_near_stack_drones(game):
     #For now just using the first largest stack, should usually be only one anyway in this context (stacking and rushing)
-    stack = get_curret_stack_location(game)
+    stack = get_current_stack_location(game)
     my_drones = game.get_my_living_drones()
     near_drones = []
     for drone in my_drones:
@@ -573,14 +575,14 @@ def check_near_stack_drones(game):
             near_drones.append(drone)
 
     return near_drones         
-
-def get_curret_stack_location(game):
+#Finds the location with the biggest stack of friendly droens
+def get_current_stack_location(game):
     my_drones = game.get_my_living_drones()
     max_stack = 0
     stack_drone = None
     #Find where the largest stack (or stacks if a few equal size stacks) is
     for drone in my_drones:
-        drones_in_location = [x for x in game.get_aircrafts_on(drone.location) if type(x).__name__ == "Drone"]
+        drones_in_location = [x for x in game.get_aircrafts_on(drone.location) if type(x).__name__ == "Drone" and x.owner.id == game.get_myself().id]
         if len(drones_in_location) > max_stack:
             max_stack = len(drones_in_location)
             stack_drone = [drone]
@@ -591,7 +593,7 @@ def get_curret_stack_location(game):
             for d in drones_in_location:
                 my_drones.remove(d)
     return stack_drone[0].location
-
+#Sets the stack location factoring into account: friendly pirates, enemy_cities, friendly pirates spawn locations(with the added weight of SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION)
 def set_stack_location(game):
     dest_row = 0
     dest_col = 0
@@ -629,7 +631,7 @@ def handle_decoy(game, game_state):
         else:
             sailing = optimize_pirate_moves(game, decoy, stack_location)
             game.set_sail(decoy, sailing)
-
+#Tries to attack the pirate with lowerst health, then drones
 def try_attack(pirate, enemy_health, enemy_drones, game):
     # Find which pirates are in my range
     in_range_pirates = []
@@ -653,13 +655,13 @@ def try_attack(pirate, enemy_health, enemy_drones, game):
             game.attack(pirate, enemy_drone)
             return Attack(pirate, enemy_drone, DRONE)
     return Attack(None, None, NO_ATTACK)
-
+#Checks if decoy is off cooldown
 def try_decoy(pirate, game):
     if pirate.owner.turns_to_decoy_reload == 0:
         game.decoy(pirate)
         return True
     return False
-
+#Important utility function, takes 2 lists of locations and finds the closest one between them
 def best_move(aircrafts, locations):
     moves = []
     for aircraft in aircrafts[:]:
@@ -676,7 +678,7 @@ def best_move(aircrafts, locations):
         if move.get_dist() < min_move.get_dist():
             min_move = move
     return min_move
-
+#Chooses the best sailing option, by checking proximity to enemy pirates, and if irrelevant, the path needed to take to travel diagonally to destination(I THINK!!)
 def optimize_drone_moves(sail_options, game):
     if len(sail_options) == 1:
         return sail_options[0]
@@ -695,13 +697,13 @@ def optimize_drone_moves(sail_options, game):
         return sail_options[0]
     else:
         return sail_options[1]
-
+#Checks if an attack is part of a battle or a new battle
 def is_new_battle(attack):
     for battle in battles:
         if battle._location_pirate.location == attack.get_target().location:
             return False
     return True
-
+#Creates a new battle
 def create_new_battle(attack, game):
     battle = Battle([], [], attack.get_target())
     all_pirates = game.get_my_living_pirates() + game.get_enemy_living_pirates()
@@ -713,7 +715,7 @@ def create_new_battle(attack, game):
                 battle._enemy_pirates.append(pirate)
     battle = turns_remaining_to_battle(battle)
     battles.append(battle)
-
+#Updates all battles in the beginning of a new turn
 def update_battles(game):
     all_pirates = game.get_my_living_pirates() + game.get_enemy_living_pirates()
     for battle in battles:
@@ -733,7 +735,7 @@ def update_battles(game):
                 turns_remaining_to_battle(battle)
         else:
             battles.remove(battle)
-
+#ROUGHLY calculates the turns remaining to battle by check hp of pirates vs amount of enemy pirates and vice versa
 def turns_remaining_to_battle(battle):
     # for battle in battles:
     enemy_hp = 0
@@ -786,7 +788,6 @@ def optimize_pirate_moves(game, pirate, destination):
             max_value = option_value
             best_option = option
     return best_option
-
 
 # takes a drone and a destination, return the safes and shortest path
 def GPS(game, drone, destination):
@@ -847,14 +848,14 @@ def GPS(game, drone, destination):
                             needs_checking.remove(unchecked)  # we remove it
                     if b == 0:  # if we didnt inserted the new_tile yet (it hes the worst value)
                         needs_checking.append(board[(row, col)])  # we append it ate the end of the needs_checking list
-
+#Checks if the enemy bot is playing defensevely around our city
 def is_defensive(game):
     highest = filter(lambda x: danger_board[x] > 0.91, danger_board)
     for loc in highest[:]:
         if Location(loc[0], loc[1]).distance(game.get_my_cities()[0]) > 3:
             highest.remove(loc)
     return len(highest) > 0
-
+#Checks if the enemy bot is stack drones
 def is_stacking(game):
     drones = game.get_my_living_drones()
     grid = {}
@@ -886,7 +887,7 @@ def is_stacking(game):
     if max_loc != (-1,-1):
         debug(game, "Enemy is stacking at "+str(max_loc))
     return max_loc
-
+#For turning on and off printing to console easily (done with the constanst DEBUG which appears in the beginning of the file)
 def debug(game, message):
     if DEBUG:
         game.debug(message)
