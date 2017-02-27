@@ -77,7 +77,7 @@ game_state = ""
 drones_plans = []
 
 # Constants:
-ENEMY_DRONE_REMEMBER_FACTOR = 0.99
+ENEMY_DRONE_REMEMBER_FACTOR = 0.8
 ENEMY_PIRATE_REMEMBER_FACTOR = 0.9
 EARLY_TURNS = 17
 PIRATE = 0
@@ -211,6 +211,15 @@ def handle_pirates(game, game_state, battles):
 				if is_new_battle(attack):
 					create_new_battle(attack, game)
 				pirates.remove(attack.get_attacker())
+
+	enemy_stack = is_stacking(game)
+	if enemy_stack != (-1,-1):
+		move = best_move(pirates, [Location(enemy_stack[0],enemy_stack[1])])
+		if move.get_aircraft() != 0:
+			sail = optimize_pirate_moves(game, move.get_aircraft(), move.get_location())
+			game.set_sail(move.get_aircraft(), sail)
+			pirates.remove(move.get_aircraft())
+
 
 	# If I don't have a city, just guard and kill drones
 	if len(game.get_my_cities()) == 0:
@@ -824,9 +833,18 @@ def is_defensive(game):
 	return len(highest) > 0
 
 
-def is_stacking():
+def is_stacking(game):
+	drones = game.get_my_living_drones()
+	grid = {}
+	for x in xrange(rows):
+		for y in xrange(cols):
+			grid[(x,y)] = 0
+	for drone in drones:
+		loc = drone.location
+		grid[(loc.row,loc.col)] += 1
+
 	# get all spaces that have a 0.8 or above drone occurrence
-	highest = filter(lambda x: enemy_drones_board[x] > 0.91, enemy_drones_board)
+	highest = filter(lambda x: enemy_drones_board[x] > 4, enemy_drones_board.keys())
 	area = {}
 	# calculate drone passing density in area
 	for loc in highest[:]:
@@ -841,8 +859,10 @@ def is_stacking():
 			max = area[loc]
 			max_loc = loc
 		# if two spaces have the same drone area density, pick the one with highest drone density on it
-		if area[loc] == max and enemy_drones_board[loc] > enemy_drones_board[max_loc]:
+		if abs(area[loc] - max) < 0.2 and grid[(loc[0],loc[1])] > grid[(max_loc[0],max_loc[1])]:
 			max_loc = loc
+	if max_loc != (-1,-1):
+		debug(game, "Enemy is stacking at "+str(max_loc))
 	return max_loc
 
 def debug(game, message):
