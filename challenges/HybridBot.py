@@ -90,7 +90,7 @@ DANGER_COST = 5
 RUSH_RADIUS = 8
 MIN_STACK_MULT = 1.7
 
-DEBUG = False
+DEBUG = True
 
 #MAIN
 def do_turn(game):
@@ -618,11 +618,11 @@ def set_stack_location(game):
         dest_col += pirate.initial_location.col*SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION
         dest_row += pirate.location.row
         dest_col += pirate.location.col
-    for city in game.get_enemy_cities():
+    for city in game.get_enemy_cities() + game.get_neutral_cities():
         dest_row += city.location.row
         dest_col += city.location.col
-    dest_row = dest_row / (len(game.get_my_living_pirates()) + len(game.get_all_my_pirates())*SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION + len(game.get_enemy_cities()))
-    dest_col = dest_col / (len(game.get_my_living_pirates()) + len(game.get_all_my_pirates())*SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION + len(game.get_enemy_cities()))
+    dest_row = dest_row / (len(game.get_my_living_pirates()) + len(game.get_all_my_pirates())*SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION + len(game.get_enemy_cities()+game.get_neutral_cities()))
+    dest_col = dest_col / (len(game.get_my_living_pirates()) + len(game.get_all_my_pirates())*SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION + len(game.get_enemy_cities()+game.get_neutral_cities()))
     ave_destination.row = dest_row
     ave_destination.col = dest_col
     return ave_destination
@@ -865,7 +865,7 @@ def GPS(game, drone, destination):
                         needs_checking.append(board[(row, col)])  # we append it ate the end of the needs_checking list
 #Checks if the enemy bot is playing defensively around our city or neutral city
 def is_defensive(game):
-    highest = filter(lambda x: danger_board[x] > 6, danger_board)
+    highest = filter(lambda x: danger_board[x] > 5, danger_board)
     for city in game.get_my_cities() + game.get_neutral_cities():
         for loc in highest[:]:
             if Location(loc[0], loc[1]).distance(city) > 3:
@@ -905,7 +905,7 @@ def is_stacking(game):
     return max_loc
 #Checks if pirate hanst move from spawn location, used specificlly against a challenge bot in week 2
 def not_moving(pirate):
-    highest = filter(lambda x: danger_board[x] > 10, danger_board)
+    highest = filter(lambda x: danger_board[x] > 15, danger_board)
     for loc in highest[:]:
         if Location(loc[0], loc[1]).distance(pirate) > 1:
             highest.remove(loc)
