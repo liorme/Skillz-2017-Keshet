@@ -7,11 +7,13 @@ REMEMBER: Change back one STACK to CONTROL
 
 
 class Battle:
-    def __init__(self, my_pirates, enemy_pirates, location_pirate):
+    def __init__(self, my_pirates, enemy_pirates, my_location_pirate, enemy_location_pirate):
         self._my_pirates = my_pirates
         self._enemy_pirates = enemy_pirates
-        self._location_pirate = location_pirate
+        self._my_location_pirate = my_location_pirate
+        self._enemy_location_pirate = enemy_location_pirate
         self._turns_remaining = 0
+        self._helping_pirates = []
         self._win = False
 
     def get_my_pirates(self):
@@ -20,13 +22,11 @@ class Battle:
     def get_enemy_pirates(self):
         return self._enemy_pirates
 
-    def get_location_pirate(self):
-        return self._location_pirate
+    def get_my_location_pirate(self):
+        return self._my_location_pirate
 
-    def update(self, my_pirates, enemy_pirates, location_pirate):
-        self._my_pirates = my_pirates
-        self._enemy_pirates = enemy_pirates
-        self._location_pirate = location_pirate
+    def get_enemy_location_pirate(self):
+        return self._enemy_location_pirate
 
 
 class BestMove:
@@ -90,7 +90,7 @@ DANGER_COST = 5
 RUSH_RADIUS = 8
 MIN_STACK_MULT = 1.7
 
-DEBUG = True
+DEBUG = False
 
 #MAIN
 def do_turn(game):
@@ -99,6 +99,7 @@ def do_turn(game):
     global rows, cols
     global set
     global range3
+    global EARLY_TURNS
 
     if not set:
         rows = game.get_row_count()
@@ -145,20 +146,26 @@ def do_turn(game):
 #UTILITY
 def choose_state(game):
     global game_state
+    global EARLY_TURNS
 
     if len(game.get_my_cities()+game.get_neutral_cities()) == 0:
         game_state = "CONTROL"
         return
 
     drones = game.get_my_living_drones()
+    if game.get_max_drones_count() == 1:
+        game_state = "CONTROL"
+        return
 
+    if game.get_turn() == 1:
+        EARLY_TURNS = math.ceil(game.get_my_living_pirates()[-1].distance(game.get_not_my_islands()[min(len(game.get_not_my_islands())-1, 3)])/2.0) + 3
     score_to_win = game.get_max_points()
     my_score = game.get_my_score()
     diff = score_to_win - my_score
     if len(game.get_neutral_cities()) != 0:
         diff /= 2
 
-    if game.get_turn() < EARLY_TURNS:
+    if game.get_turn() < EARLY_TURNS and len(game.get_my_islands()) == 0:
         game_state = "EARLY"
     # line 1 of if - states to rush drom
     # line 2 - 
@@ -190,6 +197,7 @@ def handle_pirates(game, game_state, battles):
     enemy_drones = game.get_enemy_living_drones()
     enemy_health = {}
     semi_used_pirates = []
+    decoyed = False
 
     # Get a list of enemy pirates health for try_attack
     for enemy in enemy_pirates[:]:
@@ -198,11 +206,13 @@ def handle_pirates(game, game_state, battles):
             enemy_pirates.remove(enemy)
 
     # make a decoy
-    if (game_state == "RUSH" or game_state == "EARLY") and len(pirates) > 0:
+    if game_state == "RUSH" and len(pirates) > 0:
         move = best_move(pirates, game.get_my_cities())
         to_decoy = move.get_aircraft()
-        if move.get_dist() < 8 and try_decoy(to_decoy, game):
-            pirates.remove(to_decoy)
+        if move.get_dist() < 8 and not decoyed:
+            if try_decoy(to_decoy, game):
+                pirates.remove(to_decoy)
+                decoyed = True
 
     # Try attacking, and updating battles
     for pirate in pirates[:]:
@@ -217,13 +227,15 @@ def handle_pirates(game, game_state, battles):
                     create_new_battle(attack, game)
                 pirates.remove(attack.get_attacker())
 
+    """
     enemy_stack = is_stacking(game)
-    if enemy_stack != (-1,-1):
+    if enemy_stack != (-1,-1) and False:
         move = best_move(pirates, [Location(enemy_stack[0],enemy_stack[1])])
         if move.get_aircraft() != 0:
             sail = optimize_pirate_moves(game, move.get_aircraft(), move.get_location())
             game.set_sail(move.get_aircraft(), sail)
             pirates.remove(move.get_aircraft())
+    """
 
 
     # If I don't have a city, just guard and kill drones
@@ -243,29 +255,68 @@ def handle_pirates(game, game_state, battles):
     # Try helping battles, but ignore battles when rushing
     if game_state != "RUSH":
         for battle in battles:
-            for pirate in pirates:
-                if math.ceil((pirate.distance(battle._location_pirate) - 2) / 2.0) <= \
-                                battle._turns_remaining - 1:
-                    # debug(game, "Pirate: " + str(pirate.id) + " is helping with a battle!")
-                    sail_options = game.get_sail_options(pirate, battle._location_pirate)
-                    if not pirate in semi_used_pirates: game.set_sail(pirate, sail_options[len(sail_options) / 2])
-                    pirates.remove(pirate)
+            for pirate in pirates[:]:
+                if math.ceil((pirate.distance(battle.get_enemy_location_pirate()) - 2) / 2.0) <= \
+                                battle._turns_remaining - 1 and len(battle._helping_pirates) < 2:
+                    if not pirate in semi_used_pirates and not decoyed:
+                        if try_decoy(pirate, game):
+                            pirates.remove(pirate)
+                            battle._helping_pirates.append(pirate)
+                            decoyed = True
+                    else:
+                        # debug(game, "Pirate: " + str(pirate.id) + " is helping with a battle!")
+                        sail_options = game.get_sail_options(pirate, battle.get_enemy_location_pirate())
+                        if not pirate in semi_used_pirates: game.set_sail(pirate, sail_options[len(sail_options) / 2])
+                        pirates.remove(pirate)
+                        battle._helping_pirates.append(pirate)
+
 
     # If early in the game rush bottom middle island with 4 pirates and upper right/left island with 1 pirate
     if game_state == "EARLY":
-        if len(islands) > 0:
+        if len(all_islands) > 0:
             i = 0
-            for pirate in pirates:
+            for pirate in pirates[:]:
                 if i == 0:
-                    idx = min(len(islands)-1, 1 + game.get_myself().id)
+                    idx = min(len(all_islands)-1, 1 + game.get_myself().id)
                 else:
-                    idx = min(len(islands)-1, 3)
+                    idx = min(len(all_islands)-1, 3)
                 sail_options = game.get_sail_options(pirate, all_islands[idx])
                 game.set_sail(pirate, sail_options[len(sail_options) / 2])
+                pirates.remove(pirate)
                 i += 1
 
+    # Rushing with the stack and pirates towards the enemies that are closest to the city
+    elif game_state == "RUSH":
+        rush_pirates = 0
+        max_stack = 0
+        stack_location = get_current_stack_location(game)
+        stack_location = Location(stack_location.row, stack_location.col + 2 - 4 * game.get_myself().id)
+        scary_terry = best_move(enemy_pirates, [stack_location])
+        while rush_pirates < 2 and len(pirates) > 0:
+            if scary_terry.get_dist() < RUSH_RADIUS:
+                move = best_move(pirates, [scary_terry.get_aircraft()])
+                sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
+                if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
+                pirates.remove(move.get_aircraft())
+            else:
+                move = best_move(pirates, [stack_location])
+                sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location())
+                if not pirate in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
+                pirates.remove(move.get_aircraft())
+            rush_pirates += 1
+
+        """
+        for pirate in pirates:
+            if scary_terry.get_dist() < RUSH_RADIUS:
+                sailing = optimize_pirate_moves(game, pirate, scary_terry.get_aircraft().location)
+                if not pirate in semi_used_pirates: game.set_sail(pirate, sailing)
+            else:
+                sailing = optimize_pirate_moves(game, pirate, stack_location)
+                if not pirate in semi_used_pirates: game.set_sail(pirate, sailing)
+        """
+
     # Try to get islands, kill drones, kill pirates, and gain map control in general
-    elif game_state == "STACK" or game_state == "CONTROL":
+    if len(pirates) > 0:
         protect_drones = 0
         defend_islands = 0
         check_battles = 0
@@ -277,6 +328,16 @@ def handle_pirates(game, game_state, battles):
         find_max_stack = 0
         low_hp_pirates = []
         low_hp_check = 0
+        attacked_pirates = {}
+        defend_pirates = 0
+        for enemy in enemy_pirates:
+            attacked_pirates[enemy.id] = 0
+        drones_close_to_city = []
+        for drone in enemy_drones:
+            move = best_move([drone], game.get_enemy_cities() + game.get_neutral_cities())
+            if move.get_dist() < 15:
+                drones_close_to_city.append(drone)
+                enemy_drones.remove(drone)
         while len(pirates) > 0:
             enemy_next_move = None
             # Defend the point where the drones stack if an enemy is near it
@@ -291,6 +352,17 @@ def handle_pirates(game, game_state, battles):
                         pirates.remove(move.get_aircraft())
                         defend += 1
                 protect_drones += 1
+
+
+            elif len(drones_close_to_city) > 0 and defend_pirates < 1:
+                move = best_move(pirates, drones_close_to_city)
+                drone_city = best_move([move.get_location()], game.get_enemy_cities() + game.get_neutral_cities())
+                if math.ceil(move.get_aircraft().distance(drone_city.get_location())/2.0) - 3 < drone_city.get_dist():
+                    sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
+                    if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
+                    pirates.remove(move.get_aircraft())
+                    defend_pirates += 1
+                drones_close_to_city.remove(move.get_location())
 
             # Chooses the pirate that is closest to an island and sends him towards the island
             elif len(islands) > 0:
@@ -339,7 +411,7 @@ def handle_pirates(game, game_state, battles):
                 defend_islands += 1
 
             #Defend city (CURRENTLY QUITE TERRIBLE TIMING IF I DO SAY SO MYSELF)
-            elif defend == 0 and len(enemy_drones) > 6:
+            elif defend == 0 and len(enemy_drones) > 6 and False:
                 drone_move = best_move(enemy_drones, game.get_enemy_cities() + game.get_neutral_cities())
                 if drone_move.get_dist() <= 11:
                     move = best_move(pirates, [drone_move.get_aircraft()])
@@ -367,7 +439,12 @@ def handle_pirates(game, game_state, battles):
                     pirates.remove(move.get_aircraft())
                     low_hp_pirates.remove(move.get_aircraft())
 
-            # Chooses the pirate that is closest to an enemy drone and sends him towards that drone
+
+
+                # Chooses the pirate that is closest to an enemy drone and sends him towards that drone
+
+
+
             elif len(enemy_drones) > 0 or len(enemy_pirates) > 0:
                 move = best_move(pirates, enemy_drones + enemy_pirates)
                 sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
@@ -375,8 +452,11 @@ def handle_pirates(game, game_state, battles):
                 pirates.remove(move.get_aircraft())
                 if move.get_location() in enemy_drones:
                     enemy_drones.remove(move.get_location())
-                elif move.get_location() in enemy_pirates:
+                elif move.get_location() in enemy_pirates and attacked_pirates[move.get_location().id] > 1:
                     enemy_pirates.remove(move.get_location())
+                else:
+                    attacked_pirates[move.get_location().id] += 1
+
 
             elif max_stack > 0 or find_max_stack == 0:
                 if find_max_stack == 0:
@@ -427,23 +507,7 @@ def handle_pirates(game, game_state, battles):
                 if not pirates[0] in semi_used_pirates: game.set_sail(pirates[0], sailing)
                 pirates.remove(pirates[0])
 
-    # Rushing with the stack and pirates towards the enemies that are closest to the city
-    elif game_state == "RUSH":
-        max_stack = 0
-        stack_location = Location(0, 0)
-        for drone in game.get_my_living_drones():
-            if len(game.get_aircrafts_on(drone.location)) > max_stack:
-                max_stack = len(game.get_aircrafts_on(drone.location))
-                stack_location = drone.location
-        stack_location = Location(stack_location.row, stack_location.col + 2 - 4 * game.get_myself().id)
-        scary_terry = best_move(enemy_pirates, [stack_location])
-        for pirate in pirates:
-            if scary_terry.get_dist() < RUSH_RADIUS:
-                sailing = optimize_pirate_moves(game, pirate, scary_terry.get_aircraft().location)
-                if not pirate in semi_used_pirates: game.set_sail(pirate, sailing)
-            else:
-                sailing = optimize_pirate_moves(game, pirate, stack_location)
-                if not pirate in semi_used_pirates: game.set_sail(pirate, sailing)
+
 
 #ACTION
 def handle_drones(game, game_state):
@@ -459,7 +523,7 @@ def handle_drones(game, game_state):
     while game_state != "RUSH":
         while not checked:
             drone_move = best_move(drones, game.get_my_cities() + game.get_neutral_cities())
-            if drone_move.get_dist() < 8:
+            if drone_move.get_dist() < game.get_unload_range() + 5:
                 sail_options = game.get_sail_options(drone_move.get_aircraft(), drone_move.get_location())
                 sailing = optimize_drone_moves(sail_options, game)
                 game.set_sail(drone_move.get_aircraft(), sailing)
@@ -618,20 +682,18 @@ def set_stack_location(game):
         dest_col += pirate.initial_location.col*SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION
         dest_row += pirate.location.row
         dest_col += pirate.location.col
-    for city in game.get_enemy_cities() + game.get_neutral_cities():
+    for city in game.get_enemy_cities():
         dest_row += city.location.row
         dest_col += city.location.col
-    dest_row = dest_row / (len(game.get_my_living_pirates()) + len(game.get_all_my_pirates())*SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION + len(game.get_enemy_cities()+game.get_neutral_cities()))
-    dest_col = dest_col / (len(game.get_my_living_pirates()) + len(game.get_all_my_pirates())*SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION + len(game.get_enemy_cities()+game.get_neutral_cities()))
+    dest_row = dest_row / (len(game.get_my_living_pirates()) + len(game.get_all_my_pirates())*SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION + len(game.get_enemy_cities()))
+    dest_col = dest_col / (len(game.get_my_living_pirates()) + len(game.get_all_my_pirates())*SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION + len(game.get_enemy_cities()))
     ave_destination.row = dest_row
     ave_destination.col = dest_col
     return ave_destination
 
 def handle_decoy(game, game_state):
-    if game_state != "RUSH":
-        return
     decoy = game.get_myself().decoy
-    if decoy:
+    if decoy and game_state == "RUSH":
         max_stack = 0
         stack_location = Location(0, 0)
         for drone in game.get_my_living_drones():
@@ -646,6 +708,18 @@ def handle_decoy(game, game_state):
         else:
             sailing = optimize_pirate_moves(game, decoy, stack_location)
             game.set_sail(decoy, sailing)
+    elif decoy:
+        for battle in battles:
+            if math.ceil((decoy.distance(battle.get_enemy_location_pirate()) - 2) / 2.0) <= battle._turns_remaining - 1:
+                # debug(game, "Pirate: " + str(pirate.id) + " is helping with a battle!")
+                sail_options = game.get_sail_options(decoy, battle.get_enemy_location_pirate())
+                game.set_sail(decoy, sail_options[len(sail_options) / 2])
+                decoy = None
+                break
+        if decoy:
+            move = best_move([decoy], game.get_enemy_living_pirates())
+            sail_options = game.get_sail_options(move.get_aircraft(), move.get_location())
+            game.set_sail(move.get_aircraft(), sail_options[len(sail_options)/2])
 #Tries to attack the pirate with lowerst health, then drones
 def try_attack(pirate, enemy_health, enemy_drones, game):
     # Find which pirates are in my range
@@ -715,35 +789,37 @@ def optimize_drone_moves(sail_options, game):
 #Checks if an attack is part of a battle or a new battle
 def is_new_battle(attack):
     for battle in battles:
-        if battle._location_pirate.location == attack.get_target().location:
+        if battle.get_my_location_pirate().location == attack.get_attacker().location or battle.get_enemy_location_pirate() == attack.get_target():
             return False
     return True
 #Creates a new battle
 def create_new_battle(attack, game):
-    battle = Battle([], [], attack.get_target())
-    all_pirates = game.get_my_living_pirates() + game.get_enemy_living_pirates()
-    for pirate in all_pirates:
+    battle = Battle([], [], attack.get_attacker(), attack.get_target())
+    enemy_pirates = game.get_enemy_living_pirates()
+    my_pirates = game.get_my_living_pirates()
+    for pirate in my_pirates:
         if attack.get_target().in_attack_range(pirate):
-            if pirate.owner.id == game.get_myself().id:
-                battle._my_pirates.append(pirate)
-            else:
-                battle._enemy_pirates.append(pirate)
+            battle._my_pirates.append(pirate)
+    for pirate in enemy_pirates:
+        if attack.get_attacker().in_attack_range(pirate):
+            battle._enemy_pirates.append(pirate)
     battle = turns_remaining_to_battle(battle)
     battles.append(battle)
 #Updates all battles in the beginning of a new turn
 def update_battles(game):
-    all_pirates = game.get_my_living_pirates() + game.get_enemy_living_pirates()
+    enemy_pirates = game.get_enemy_living_pirates()
+    my_pirates = game.get_my_living_pirates()
     for battle in battles:
         # update_location_pirate(battle, all_pirates, game)
-        if battle.get_location_pirate() in all_pirates:
+        if battle.get_my_location_pirate() in my_pirates:
             battle._my_pirates = []
             battle._enemy_pirates = []
-            for pirate in all_pirates:
-                if battle.get_location_pirate().in_attack_range(pirate):
-                    if pirate.owner.id == game.get_myself().id:
-                        battle._my_pirates.append(pirate)
-                    else:
-                        battle._enemy_pirates.append(pirate)
+            for pirate in my_pirates:
+                if battle.get_enemy_location_pirate().in_attack_range(pirate):
+                    battle._my_pirates.append(pirate)
+            for pirate in enemy_pirates:
+                if battle.get_my_location_pirate().in_attack_range(pirate):
+                    battle._enemy_pirates.append(pirate)
             if not (len(battle.get_my_pirates()) > 0 and len(battle.get_enemy_pirates()) > 0):
                 battles.remove(battle)
             else:
@@ -865,7 +941,7 @@ def GPS(game, drone, destination):
                         needs_checking.append(board[(row, col)])  # we append it ate the end of the needs_checking list
 #Checks if the enemy bot is playing defensively around our city or neutral city
 def is_defensive(game):
-    highest = filter(lambda x: danger_board[x] > 5, danger_board)
+    highest = filter(lambda x: danger_board[x] > 4, danger_board)
     for city in game.get_my_cities() + game.get_neutral_cities():
         for loc in highest[:]:
             if Location(loc[0], loc[1]).distance(city) > 3:
