@@ -142,6 +142,7 @@ def do_turn(game):
     handle_drones(game, game_state)
     handle_decoy(game, game_state)
 
+
     debug(game, "Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
 
 #UTILITY
@@ -518,7 +519,10 @@ def handle_drones(game, game_state):
     living_drones_ids = [drone.id for drone in drones]
     islands_locations = [island.location for island in game.get_my_islands()]
     enemy_pirates = game.get_enemy_living_pirates()
-
+    #Remove pirates which are in a battle
+    for battle in battles:
+        for enemy in battle.get_enemy_pirates():
+            if enemy in enemy_pirates: enemy_pirates.remove(enemy)
     # dodging enemy pirates while there are drones in danger
     checked = False
     while game_state != "RUSH":
