@@ -92,6 +92,7 @@ MIN_STACK_MULT = 1.7
 
 DEBUG = False
 
+random.seed(4)
 #MAIN
 def do_turn(game):
     global battles, enemy_drones_board, full_tiles, danger_board
@@ -381,7 +382,7 @@ def handle_pirates(game, game_state, battles):
                     enemy_bm = best_move([enemy_pirate], my_islands)
                     enemy_options = game.get_sail_options(enemy_pirate, enemy_bm.get_location())
                     enemy_next_move = enemy_options[len(enemy_options) / 2]
-                    if enemy_bm.get_dist() < 6:
+                    if enemy_bm.get_dist() < 0:
                         min_dist = 9999999
                         blocking_pirate = None
                         # find closest pirate
@@ -724,11 +725,21 @@ def handle_decoy(game, game_state):
 def try_attack(pirate, enemy_health, enemy_drones, game):
     # Find which pirates are in my range
     in_range_pirates = []
+    in_range_drones = []
     for enemy_pirate in game.get_enemy_living_pirates():
         if pirate.in_attack_range(enemy_pirate) and enemy_health[enemy_pirate] > 0:
             in_range_pirates.append(enemy_pirate)
+    for enemy_drone in enemy_drones:
+        if pirate.in_attack_range(enemy_drone):
+            in_range_drones.append(enemy_drone)
+            
+    min_dist = -99999
+    for city in game.get_enemy_cities() + game.get_neutral_cities():
+        if city.distance(pirate) < min_dist:
+            min_dist = city.distance(pirate)
+        
     # If pirates are in range then attack the one with the lowest health
-    if len(in_range_pirates) > 0:
+    if len(in_range_pirates) > 0 and not (len(in_range_drones) > 0 and min_dist < 5):
         min_health = 9999999
         best_target = 0
         for enemy_pirate in in_range_pirates:
@@ -739,11 +750,12 @@ def try_attack(pirate, enemy_health, enemy_drones, game):
         game.attack(pirate, best_target)
         return Attack(pirate, best_target, PIRATE)
 
-    for enemy_drone in enemy_drones:
-        if pirate.in_attack_range(enemy_drone):
-            game.attack(pirate, enemy_drone)
-            return Attack(pirate, enemy_drone, DRONE)
+    for enemy_drone in in_range_drones:
+        game.attack(pirate, enemy_drone)
+        return Attack(pirate, enemy_drone, DRONE)
     return Attack(None, None, NO_ATTACK)
+    
+    
 #Checks if decoy is off cooldown
 def try_decoy(pirate, game):
     if pirate.owner.turns_to_decoy_reload == 0:
