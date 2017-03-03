@@ -1034,7 +1034,6 @@ def target_city(game, stack_location):
     
 #Finds best island to conqure.
 
-
 def best_island(game, pirate, islands, stack_location):
 
     
@@ -1042,8 +1041,8 @@ def best_island(game, pirate, islands, stack_location):
     for score in islands_score:
         #find best close city
         best_city = target_city(game, score[1].location) 
-        score[0] += MULTIPLIER_BEST_ISLAND_CITY_DISTANCE*best_city.value_multiplier/best_city.distance(score[1]) #constant*city multiplier/distance
-        score[0] += MULTIPLIER_BEST_ISLAND_PIRATE_DISTANCE/pirate.distance(score[1])
+        if best_city.distance(score[1]) != 0: score[0] += MULTIPLIER_BEST_ISLAND_CITY_DISTANCE*best_city.value_multiplier/best_city.distance(score[1]) #constant*city multiplier/distance
+        if pirate.distance(score[1]) != 0: score[0] += MULTIPLIER_BEST_ISLAND_PIRATE_DISTANCE/pirate.distance(score[1])
         if game_state == "STACK":
             score[0] += MULTIPLIER_BEST_ISLAND_STACK_DISTANCE/score[1].distance(stack_location)
         for enemy in game.get_enemy_living_pirates():
@@ -1054,7 +1053,6 @@ def best_island(game, pirate, islands, stack_location):
         if score[0] > best[0]:
             best = score
     return best
-                
     
 
 #For turning on and off printing to console easily (done with the constanst DEBUG which appears in the beginning of the file)
