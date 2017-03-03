@@ -354,6 +354,14 @@ def handle_pirates(game, game_state, battles):
                         pirates.remove(move.get_aircraft())
                         defend += 1
                 protect_drones += 1
+                
+            # Chooses the pirate that is closest to an island and sends him towards the island
+            elif len(islands) > 0:
+                move = best_move(pirates, islands)
+                sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
+                if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
+                pirates.remove(move.get_aircraft())
+                islands.remove(move.get_location())
 
 
             elif len(drones_close_to_city) > 0 and defend_pirates < 1:
@@ -365,14 +373,6 @@ def handle_pirates(game, game_state, battles):
                     pirates.remove(move.get_aircraft())
                     defend_pirates += 1
                 drones_close_to_city.remove(move.get_location())
-
-            # Chooses the pirate that is closest to an island and sends him towards the island
-            elif len(islands) > 0:
-                move = best_move(pirates, islands)
-                sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
-                if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
-                pirates.remove(move.get_aircraft())
-                islands.remove(move.get_location())
 
             # Defend an island if an enemy is close and you can intercept him
             elif defend_islands == 0 and len(my_islands) > 0:
