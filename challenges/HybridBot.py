@@ -90,6 +90,13 @@ DANGER_COST = 5
 RUSH_RADIUS = 8
 MIN_STACK_MULT = 1.7
 
+#Constants for the function best_island
+MULTIPLIER_BEST_ISLAND_CITY_DISTANCE = 100
+MULTIPLIER_BEST_ISLAND_PIRATE_DISTANCE = 100
+MULTIPLIER_BEST_ISLAND_STACK_DISTANCE = 50
+BEST_ISLAND_DEFEND_RADIUS = 4
+MULTIPLIER_BEST_ISLAND_ENEMY_NEARBY = 30
+
 DEBUG = False
 
 random.seed(4)
@@ -357,11 +364,19 @@ def handle_pirates(game, game_state, battles):
                 
             # Chooses the pirate that is closest to an island and sends him towards the island
             elif len(islands) > 0:
-                move = best_move(pirates, islands)
-                sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
-                if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
-                pirates.remove(move.get_aircraft())
-                islands.remove(move.get_location())
+                #choose one pirate with the highest score
+                best_island_move = [-99999,None]
+                best_pirate = None
+                for pirate in pirates:
+                    target_island = best_island(game, pirate, islands, ave_destination)
+                    if target_island[0] >= best_island_move[0]:
+                        best_island_move = target_island
+                        best_pirate = pirate
+                if best_pirate != None:
+                    sailing = optimize_pirate_moves(game, best_pirate, best_island_move[1].location)
+                    if not best_pirate in semi_used_pirates: game.set_sail(best_pirate, sailing)
+                    pirates.remove(best_pirate)
+                    islands.remove(best_island_move[1])
 
 
             elif len(drones_close_to_city) > 0 and defend_pirates < 1:
@@ -1016,6 +1031,32 @@ def target_city(game, stack_location):
             best_city = city
             best_score = score
     return best_city
+    
+#Finds best island to conqure.
+
+
+def best_island(game, pirate, islands, stack_location):
+
+    
+    islands_score = [[0,island] for island in islands]
+    for score in islands_score:
+        #find best close city
+        best_city = target_city(game, score[1].location) 
+        score[0] += MULTIPLIER_BEST_ISLAND_CITY_DISTANCE*best_city.value_multiplier/best_city.distance(score[1]) #constant*city multiplier/distance
+        score[0] += MULTIPLIER_BEST_ISLAND_PIRATE_DISTANCE/pirate.distance(score[1])
+        if game_state == "STACK":
+            score[0] += MULTIPLIER_BEST_ISLAND_STACK_DISTANCE/score[1].distance(stack_location)
+        for enemy in game.get_enemy_living_pirates():
+            if enemy.distance(island) < BEST_ISLAND_DEFEND_RADIUS:
+                score[0] -= MULTIPLIER_BEST_ISLAND_ENEMY_NEARBY
+    best = [-99999,None]
+    for score in islands_score:
+        if score[0] > best[0]:
+            best = score
+    return best
+                
+    
+
 #For turning on and off printing to console easily (done with the constanst DEBUG which appears in the beginning of the file)
 def debug(game, message):
     if DEBUG:
