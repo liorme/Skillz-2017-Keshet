@@ -367,7 +367,7 @@ def handle_pirates(game, game_state, battles):
             elif len(drones_close_to_city) > 0 and defend_pirates < 1:
                 move = best_move(pirates, drones_close_to_city)
                 drone_city = best_move([move.get_location()], game.get_enemy_cities() + game.get_neutral_cities())
-                if math.ceil(move.get_aircraft().distance(drone_city.get_location())/2.0) - 3 < drone_city.get_dist():
+                if math.ceil((move.get_aircraft().distance(drone_city.get_location()) - 3)/2.0) < drone_city.get_dist():
                     sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location().location)
                     if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
                     pirates.remove(move.get_aircraft())
@@ -634,16 +634,20 @@ def handle_drones(game, game_state):
         near_drones = check_near_stack_drones(game)
         if len(near_drones) > 0:
             stack = get_current_stack_location(game)
-            for drone in near_drones:
+            for drone in near_drones[:]:
                 sail_options = game.get_sail_options(drone, stack)
                 sail = optimize_drone_moves(sail_options, game)
                 game.set_sail(drone, sail)
-        else:
-            for drone in drones:
-                destination = target_city(game, drone.location)
-                sail_options = game.get_sail_options(drone, destination)
-                sail = optimize_drone_moves(sail_options, game)
-                game.set_sail(drone, sail)
+                drones.remove(drone)
+            drones_in_stack = [x for x in game.get_aircrafts_on(stack) if type(x).__name__ == "Drone" and x.owner.id == game.get_myself().id]
+            for drone in drones_in_stack:
+                drones.remove(drone)
+    
+        for drone in drones:
+            destination = target_city(game, drone.location)
+            sail_options = game.get_sail_options(drone, destination)
+            sail = optimize_drone_moves(sail_options, game)
+            game.set_sail(drone, sail)
 
 
 #~~~UTILITY~~~
