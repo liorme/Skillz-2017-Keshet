@@ -63,8 +63,6 @@ class Attack:
 
 # Global Variables:
 
-range3 = [(3, 0), (2, -1), (2, 0), (2, 1), (1, -2), (1, -1), (1, 0), (1, 1), (1, 2), (0, -3), (0, -2), (0, -1), (0, 0),
-          (0, 1), (0, 2), (0, 3), (-1, -2), (-1, -1), (-1, 0), (-1, 1), (-1, 2), (-2, -1), (-2, 0), (-2, 1), (-3, 0)]
 battles = []
 ave_destination = Location(0, 23)
 enemy_drones_board = {}  # dictionary of all places in the board through which an enemy drone has passed.
@@ -99,7 +97,6 @@ def do_turn(game):
     global ave_destination
     global rows, cols
     global set
-    global range3
     global EARLY_TURNS
 
     if not set:
@@ -130,7 +127,7 @@ def do_turn(game):
     for pirate in danger_pirates:
         row = pirate.location.row
         col = pirate.location.col
-        for directions in range3:
+        for directions in range_n(3):
             dirow = row + directions[0]
             dicol = col + directions[1]
             if 0 <= dirow < rows and 0 <= dicol < cols:
@@ -975,7 +972,7 @@ def is_stacking(game):
     area = {}
     # calculate drone passing density in area
     for loc in highest[:]:
-        near = [(loc[0]+x[0], loc[1]+x[1]) for x in range3]
+        near = [(loc[0]+x[0], loc[1]+x[1]) for x in range_n(3)]
         near_in_range = filter(lambda x: 0 <= x[0] < rows and 0 <= x[1] < cols, near)
         area[loc] = sum(map(lambda x: enemy_drones_board[x], near_in_range))
     # find place with biggest area density
@@ -1008,6 +1005,17 @@ def target_city(game, stack_location):
             best_city = city
             best_score = score
     return best_city
+
+def get_range(n):
+    range_n = set([])
+    for x in range(1,n):
+        for i in range(x):
+            range_n.add((i, x-i))
+            range_n.add(-i, x-i)
+            range_n.add(i, -(x-i))
+            range_n.add(-i, -(x-i))
+    return range_n
+
 #For turning on and off printing to console easily (done with the constanst DEBUG which appears in the beginning of the file)
 def debug(game, message):
     if DEBUG:
