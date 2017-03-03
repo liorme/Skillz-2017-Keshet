@@ -659,7 +659,7 @@ def check_near_stack_drones(game):
 def get_current_stack_location(game):
     my_drones = game.get_my_living_drones()
     max_stack = 0
-    stack_drone = Location(0,0)
+    stack_drone = [Location(0,0)]
     #Find where the largest stack (or stacks if a few equal size stacks) is
     for drone in my_drones:
         drones_in_location = [x for x in game.get_aircrafts_on(drone.location) if type(x).__name__ == "Drone" and x.owner.id == game.get_myself().id]
