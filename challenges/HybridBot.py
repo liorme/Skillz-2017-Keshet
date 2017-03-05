@@ -756,7 +756,7 @@ def try_attack(pirate, enemy_health, enemy_drones, game):
         if pirate.in_attack_range(enemy_drone):
             in_range_drones.append(enemy_drone)
             
-    min_dist = -99999
+    min_dist = 99999
     for city in game.get_enemy_cities() + game.get_neutral_cities():
         if city.distance(pirate) < min_dist:
             min_dist = city.distance(pirate)
