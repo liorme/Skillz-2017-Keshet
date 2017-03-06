@@ -91,7 +91,7 @@ RUSH_RADIUS = 8
 MIN_STACK_MULT = 1.7
 
 DEBUG = False
-
+num_helping_pirates = 3
 random.seed(4)
 #MAIN
 def do_turn(game):
@@ -101,6 +101,7 @@ def do_turn(game):
     global set
     global range3
     global EARLY_TURNS
+    global num_helping_pirates
 
     if not set:
         rows = game.get_row_count()
@@ -110,6 +111,11 @@ def do_turn(game):
                 enemy_drones_board[(row, col)] = 0
                 danger_board[(row, col)] = 0
         set = True
+        if rows == 50 and cols == 50 and len(game.get_my_cities() + game.get_enemy_cities()) == 2 and game.get_neutral_cities()[0].location == Location(24,25) and game.get_all_my_pirates()[0].initial_location == Location(44, 44) and len(game.get_all_islands()) == 2:
+            num_helping_pirates = 2
+        else:
+            num_helping_pirates = 3
+
 
     # update the memory board:
     for tile in full_tiles:  # decrease effect of drone pass over time.
@@ -142,7 +148,9 @@ def do_turn(game):
     handle_drones(game, game_state)
     handle_decoy(game, game_state)
 
-
+    game.debug(str(rows) + "   " +str(cols))
+    game.debug(game.get_max_drones_count())
+    game.debug(game.get_all_players())
     debug(game, "Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
 
 #UTILITY
@@ -259,7 +267,7 @@ def handle_pirates(game, game_state, battles):
         for battle in battles:
             for pirate in pirates[:]:
                 if math.ceil((pirate.distance(battle.get_enemy_location_pirate()) - 2) / 2.0) <= \
-                                battle._turns_remaining - 1 and len(battle._helping_pirates) < 2:
+                                battle._turns_remaining - 1 and len(battle._helping_pirates) < num_helping_pirates:
                     if not pirate in semi_used_pirates and not decoyed:
                         if try_decoy(pirate, game):
                             pirates.remove(pirate)
