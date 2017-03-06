@@ -111,10 +111,10 @@ def do_turn(game):
                 enemy_drones_board[(row, col)] = 0
                 danger_board[(row, col)] = 0
         set = True
-        if rows == 50 and cols == 50 and len(game.get_my_cities() + game.get_enemy_cities()) == 2 and game.get_neutral_cities()[0].location == Location(24,25) and game.get_all_my_pirates()[0].initial_location == Location(44, 44) and len(game.get_all_islands()) == 2:
-            num_helping_pirates = 2
-        else:
+        if rows == 34 and cols == 43 and len(game.get_my_cities() + game.get_enemy_cities()) == 4 and game.get_neutral_cities()[0].location == Location(29,21) and game.get_all_my_pirates()[0].initial_location == Location(1, 41) and len(game.get_all_islands()) == 2:
             num_helping_pirates = 3
+        else:
+            num_helping_pirates = 2
 
 
     # update the memory board:
@@ -795,7 +795,6 @@ def choose_escape_option(game, drones_escape_location, options):
             min_dist_options = [option]
         elif dist == min_dist:
             min_dist_options.append(option)
-    game.debug(min_dist_options)
     if len(min_dist_options) < 2:
         return min_dist_options[0]
 
