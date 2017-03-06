@@ -148,9 +148,6 @@ def do_turn(game):
     handle_drones(game, game_state)
     handle_decoy(game, game_state)
 
-    game.debug(str(rows) + "   " +str(cols))
-    game.debug(game.get_max_drones_count())
-    game.debug(game.get_all_players())
     debug(game, "Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
 
 #UTILITY
