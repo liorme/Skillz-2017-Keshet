@@ -91,7 +91,7 @@ RUSH_RADIUS = 8
 MIN_STACK_MULT = 1.7
 
 DEBUG = False
-num_helping_pirates = 3
+num_helping_pirates = 2
 random.seed(4)
 #MAIN
 def do_turn(game):
