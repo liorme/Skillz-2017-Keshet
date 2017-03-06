@@ -519,6 +519,7 @@ def handle_drones(game, game_state):
     living_drones_ids = [drone.id for drone in drones]
     islands_locations = [island.location for island in game.get_my_islands()]
     enemy_pirates = game.get_enemy_living_pirates()
+    drones_escape_location = []
     #Remove pirates which are in a battle
     for battle in battles:
         for enemy in battle.get_enemy_pirates():
@@ -557,7 +558,8 @@ def handle_drones(game, game_state):
                       max(2 * escaping_info.get_aircraft().location.col - escaping_info.get_location().location.col, 0))
             goto = (row, col)
         else:
-            goto = random.choice(options)
+            goto = choose_escape_option(game, drones_escape_location, options)
+            drones_escape_location.append(goto)
         sail_options = game.get_sail_options(escaping_info.get_aircraft(), Location(goto[0], goto[1]))
         sailing = optimize_drone_moves(sail_options, game)
         game.set_sail(escaping_info.get_aircraft(), sailing)
@@ -743,11 +745,11 @@ def try_attack(pirate, enemy_health, enemy_drones, game):
             
     min_dist = 99999
     for city in game.get_enemy_cities() + game.get_neutral_cities():
-        if city.distance(pirate) < min_dist:
+        if city.distance(pirate) < min_dist and city.value_multiplier > 1:
             min_dist = city.distance(pirate)
         
     # If pirates are in range then attack the one with the lowest health
-    if len(in_range_pirates) > 0 and not (len(in_range_drones) > 0 and min_dist < 5):
+    if len(in_range_pirates) > 0 and not (len(in_range_drones) > 0 and min_dist < 10):
         min_health = 9999999
         best_target = 0
         for enemy_pirate in in_range_pirates:
@@ -762,7 +764,48 @@ def try_attack(pirate, enemy_health, enemy_drones, game):
         game.attack(pirate, enemy_drone)
         return Attack(pirate, enemy_drone, DRONE)
     return Attack(None, None, NO_ATTACK)
-    
+def choose_escape_option(game, drones_escape_location, options):
+    min_drones = 9999
+    min_options = []
+    for option in options:
+        drones_on_option = 0
+        drones_on_option += drones_escape_location.count(option)
+        drones_on_option += len([x for x in game.get_aircrafts_on(Location(option[0], option[1])) if type(x).__name__ == "Drone" and x.owner.id == game.get_myself().id])
+        if drones_on_option < min_drones:
+            min_drones = drones_on_option
+            min_options = [option]
+        elif drones_on_option == min_drones:
+            min_options.append(option)
+    if len(min_options) != 0 and min_drones > 0 and len(min_options) < 2:
+        return min_options[0]
+
+    options = min_options
+    min_dist = 9999
+    min_dist_options = []
+    for option in options:
+        dist = 0
+        dist += target_city(game, Location(option[0], option[1])).distance(Location(option[0], option[1]))
+        if dist < min_dist:
+            min_dist = dist
+            min_dist_options = [option]
+        elif dist == min_dist:
+            min_dist_options.append(option)
+    game.debug(min_dist_options)
+    if len(min_dist_options) < 2:
+        return min_dist_options[0]
+
+    options = min_dist_options
+
+    min_dist_option = None
+    max_dist = 0
+    enemy_pirates = game.get_enemy_living_pirates()
+    for option in options:
+        move = best_move([Location(option[0], option[1])], enemy_pirates)
+        if move.get_dist() > max_dist:
+            min_dist_option = option
+            max_dist = move.get_dist()
+
+    return min_dist_option
     
 #Checks if decoy is off cooldown
 def try_decoy(pirate, game):
