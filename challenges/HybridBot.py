@@ -286,16 +286,12 @@ def handle_pirates(game, game_state, battles):
     # If early in the game rush bottom middle island with 4 pirates and upper right/left island with 1 pirate
     if game_state == "EARLY":
         if len(all_islands) > 0:
-            i = 0
             for pirate in pirates[:]:
-                if i == 0:
-                    idx = min(len(all_islands)-1, 1 + game.get_myself().id)
-                else:
-                    idx = min(len(all_islands)-1, 3)
-                sail_options = game.get_sail_options(pirate, all_islands[idx])
-                game.set_sail(pirate, sail_options[len(sail_options) / 2])
-                pirates.remove(pirate)
-                i += 1
+                move = best_move([pirate], all_islands)
+                    if move.get_location() != 0:
+                    sail_options = game.get_sail_options(pirate, move.get_location())
+                    game.set_sail(pirate, sail_options[len(sail_options) / 2])
+                    pirates.remove(pirate)
 
     # Rushing with the stack and pirates towards the enemies that are closest to the city
     elif game_state == "RUSH":
