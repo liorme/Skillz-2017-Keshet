@@ -75,6 +75,8 @@ cols = 1
 set = False
 game_state = ""
 drones_plans = []
+enemy_ave_spawn = (0,0)
+my_ave_spawn = (0,0)
 
 # Constants:
 SPAWN_LOCATION_PRIORITY_FOR_STACK_LOCATION = 2
@@ -951,6 +953,8 @@ def optimize_pirate_moves(game, pirate, destination):
 def GPS(game, drone, destination):
     # danger_board is a memory of all the places enem pirates have threatend
     global danger_board
+    global enemy_ave_spawn
+    global rows,cols
     destination = (destination.row, destination.col)
     # creates a board by (row,col) that for each spot contains a dictionary its
     # 'index', the 'cost' to get there(infinity at the beginning),
@@ -968,14 +972,28 @@ def GPS(game, drone, destination):
     # creates a list of points we know how to get to and that are not yet checked,
     # this list will be sorted by the points values
     needs_checking = [board[(drone.location.row, drone.location.col)]]
-    # next_to is a list of the 4 directions, in an efficient order according to your team
-    if game.get_myself().id == 0:
-        next_to = [(0, -1), (1, 0), (0, 1), (-1, 0)]
-    else:
-        next_to = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+    # next_to is a list of the 4 directions, in an efficient order according to enemy_ave_spawn and the dron location
+    directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+    score_dir = []
+    next_to = []
+    for dir in directions:
+        not_inserted = True
+        dir_row = drone.location.row + dir[0]
+        dir_col = drone.location.col + dir[1]
+        dir_score = abs(dir_row - enemy_ave_spawn[0]) + abs(dir_col - enemy_ave_spawn[1]) + math.hypot(dir_row - rows/2, dir_col - cols/2)
+        for i, scored_dir in enumerate(score_dir[:]):
+            if dir_score < scored_dir and not_inserted:
+                score_dir.insert(i,dir_score)
+                next_to.insert(i,dir)
+                not_inserted = False
+        if not_inserted:
+            score_dir.append(dir_score)
+            next_to.append(dir)
+    debug(game, str(drone) + " " + str(next_to))
     while True:
         tile = needs_checking[0]  # setting the tile with the best value to be the one we are checking
         if tile['index'] == destination:  # if this tile is the destination we return the road we found to this tile
+            debug(game, board[destination]['road'])
             return board[destination]['road']
         needs_checking = needs_checking[1:]  # taking the tile we are checking out of needs_checking
         # we are checking all the tiles that next to the tile we are checking and
