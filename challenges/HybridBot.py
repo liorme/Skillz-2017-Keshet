@@ -740,7 +740,7 @@ def handle_decoy(game, game_state):
                 game.set_sail(decoy, sail_options[len(sail_options) / 2])
                 decoy = None
                 break
-        if decoy:
+        if decoy and len(game.get_enemy_living_pirates()) > 0:
             move = best_move([decoy], game.get_enemy_living_pirates())
             sail_options = game.get_sail_options(move.get_aircraft(), move.get_location())
             game.set_sail(move.get_aircraft(), sail_options[len(sail_options)/2])
