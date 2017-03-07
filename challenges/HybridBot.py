@@ -167,7 +167,7 @@ def choose_state(game):
         return
 
     if game.get_turn() == 1:
-        EARLY_TURNS = math.ceil(game.get_my_living_pirates()[-1].distance(game.get_not_my_islands()[min(len(game.get_not_my_islands())-1, 3)])/2.0) + 3
+        EARLY_TURNS = math.ceil(game.get_my_living_pirates()[-1].distance(game.get_not_my_islands()[min(len(game.get_not_my_islands())-1, 3)])/2.0) +3
     score_to_win = game.get_max_points()
     my_score = game.get_my_score()
     diff = score_to_win - my_score
@@ -186,7 +186,7 @@ def choose_state(game):
                 game_state = "RUSH"
         else:
             game_state = "RUSH"
-    elif is_defensive(game) or game_state == "STACK":
+    elif (is_defensive(game) or game_state == "STACK") and len(game.get_available_paintballs()) == 0:
         game_state = "STACK"
     else:
         game_state = "CONTROL"
@@ -252,14 +252,17 @@ def handle_pirates(game, game_state, battles):
         for pirate in pirates[:]:
             move = best_move([pirate], enemy_drones)
             if move.get_aircraft() == 0 or move.get_dist() > 6:
-                sail_options = game.get_sail_options(pirate, target_city(game, pirate.location))
-                game.set_sail(pirate, sail_options[0])
-                pirates.remove(pirate)
-                continue
-            sailing = game.get_sail_options(pirate, move.get_location())
-            game.set_sail(move.get_aircraft(), sailing[0])
-            pirates.remove(move.get_aircraft())
-            enemy_drones.remove(move.get_location())
+                target = target_city(game, pirate.location)
+                if target != None:
+                    sail_options = game.get_sail_options(pirate, target)
+                    game.set_sail(pirate, sail_options[0])
+                    pirates.remove(pirate)
+                    continue
+            if move.get_location() != 0:
+                sailing = game.get_sail_options(pirate, move.get_location())
+                game.set_sail(move.get_aircraft(), sailing[0])
+                pirates.remove(move.get_aircraft())
+                enemy_drones.remove(move.get_location())
 
     # Try helping battles, but ignore battles when rushing
     if game_state != "RUSH":
@@ -734,7 +737,7 @@ def handle_decoy(game, game_state):
                 game.set_sail(decoy, sail_options[len(sail_options) / 2])
                 decoy = None
                 break
-        if decoy:
+        if decoy and len(game.get_enemy_living_pirates()) > 0:
             move = best_move([decoy], game.get_enemy_living_pirates())
             sail_options = game.get_sail_options(move.get_aircraft(), move.get_location())
             game.set_sail(move.get_aircraft(), sail_options[len(sail_options)/2])
@@ -744,7 +747,7 @@ def try_attack(pirate, enemy_health, enemy_drones, game):
     in_range_pirates = []
     in_range_drones = []
     for enemy_pirate in game.get_enemy_living_pirates():
-        if pirate.in_attack_range(enemy_pirate) and enemy_health[enemy_pirate] > 0:
+        if pirate.in_attack_range(enemy_pirate) and enemy_health[enemy_pirate] > 0 and not close_to_city(game, enemy_pirate):
             in_range_pirates.append(enemy_pirate)
     for enemy_drone in enemy_drones:
         if pirate.in_attack_range(enemy_drone):
@@ -771,6 +774,17 @@ def try_attack(pirate, enemy_health, enemy_drones, game):
         game.attack(pirate, enemy_drone)
         return Attack(pirate, enemy_drone, DRONE)
     return Attack(None, None, NO_ATTACK)
+
+# Return True if pirate will spawn near one of my cities, False otherwise
+def close_to_city(game, pirate):
+    init_loc = pirate.initial_location
+    if len(game.get_my_cities()) > 2:
+        return False
+    for city in game.get_my_cities():
+        if city.distance(init_loc) < 10:
+            return True
+    return False
+
 def choose_escape_option(game, drones_escape_location, options):
     min_drones = 9999
     min_options = []
