@@ -219,32 +219,6 @@ def handle_pirates(game, game_state, battles):
 		if not_moving(enemy):
 			enemy_pirates.remove(enemy)
 
-
-	# Behaivor for pirates with paintball:
-	for pirate in pirates:
-		enemy_stack =  is_stacking()
-		if pirate.has_paintball():
-			pirates.remove(enemy)
-			enemy_stack =  is_stacking()
-			if enemy_stack != (-1,-1):
-				sailing = optimize_pirate_moves(game, pirate, enemy_stack)
-				game.set_sail(pirate, sailing)
-			
-			else: # Enemy doesn't have a stack
-				num_of_drones_in_range = 0
-				drone_in_range = None
-				for drone in enemy_drones:
-					if drone.distance(pirate) < game.get_available_paintballs()[0].get_paintball_range():
-						drone_in_range = drone
-						num_of_drones_in_range += 1
-				if num_of_drones_in_range > 4 or pirate.current_health == 1:
-					pirate.attack(drone_in_range)
-				else:
-					move = best_move([pirate], enemy_drones)
-					sail = optimize_pirate_moves(game, pirate, move.get_location())
-					game.set_sail(pirate, sail)
-
-
 	# make a decoy
 	if game_state == "RUSH" and len(pirates) > 0:
 		move = best_move(pirates, game.get_my_cities())
