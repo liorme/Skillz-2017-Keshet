@@ -92,7 +92,7 @@ DANGER_COST = 5
 RUSH_RADIUS = 8
 MIN_STACK_MULT = 1.7
 
-DEBUG = True
+DEBUG = False
 num_helping_pirates = 2
 random.seed(4)
 #MAIN
@@ -119,11 +119,13 @@ def do_turn(game):
 			num_helping_pirates = 2
 
 
-	# update the memory board:
+	# update the memory board and plans turn count:
 	for tile in full_tiles:  # decrease effect of drone pass over time.
 		enemy_drones_board[tile] *= ENEMY_DRONE_REMEMBER_FACTOR
 	for tile in danger_board:  # decrease effect of pirates over time but slower.
 		danger_board[tile] *= ENEMY_PIRATE_REMEMBER_FACTOR
+	for plan in drones_plans:
+	    plan["turns"] += 1
 
 	# add current drone states to enemy_drones_board:
 	enemy_drones = game.get_enemy_living_drones()
@@ -289,7 +291,7 @@ def handle_pirates(game, game_state, battles):
 
 	#try taking over intersections
 	if len(intersections) > 0:
-		for pirate in pirates:
+		for pirate in pirates[:]:
 			num_of_islands_in_range = 0
 			for island in all_islands:
 				if island.in_control_range(pirate):
@@ -297,7 +299,7 @@ def handle_pirates(game, game_state, battles):
 			if num_of_islands_in_range < 2:
 				move = best_move(pirates, intersections)
 				sailing = optimize_pirate_moves(game, move.get_aircraft(), move.get_location())
-				if not move.get_aircraft() in semi_used_pirates: game.set_sail(move.get_aircraft(), sailing)
+				game.set_sail(move.get_aircraft(), sailing)
 				pirates.remove(move.get_aircraft())
 		
 	# If early in the game rush bottom middle island with 4 pirates and upper right/left island with 1 pirate
@@ -550,6 +552,21 @@ def handle_drones(game, game_state):
 			if enemy in enemy_pirates: enemy_pirates.remove(enemy)
 	# dodging enemy pirates while there are drones in danger
 	checked = False
+	
+	#HARDCODED AND SHOULD BE CHANGED: This is only to beat bot #1 in week 3 Chafifa
+	intersections = find_intersection(game.get_all_islands())
+	if len(intersections) > 0 and len(game.get_all_islands()) == 2:
+	    city = game.get_my_cities()[0]
+	    city_enemy = game.get_enemy_cities()[0]
+	    for drone in drones[:]:
+	        if drone.initial_location.distance(city) < drone.initial_location.distance(city_enemy) :
+	            sail_options = game.get_sail_options(drone, Location(9, 21))
+	            sailing = optimize_drone_moves(sail_options, game)
+	            game.set_sail(drone, sailing)
+	            drones.remove(drone)
+	            living_drones_ids.remove(drone.id)
+	        
+	
 	while game_state != "RUSH":
 		while not checked:
 			drone_move = best_move(drones, game.get_my_cities() + game.get_neutral_cities())
@@ -597,7 +614,7 @@ def handle_drones(game, game_state):
 			target = target_city(game, drone.location)
 			if drone.location in islands_locations or drone.id not in map(lambda x: x['id'], drones_plans):
 				new_plan = GPS(game, drone, target.location)
-				drones_plans.append({"id": drone.id, "steps": new_plan})
+				drones_plans.append({"id": drone.id, "steps": new_plan, "turns": 0})
 			if game.get_time_remaining() < 10:
 				break
 
@@ -611,25 +628,47 @@ def handle_drones(game, game_state):
 				elif abs(drone.location.row - plan["steps"][0][0]) == 0 and abs(
 								drone.location.col - plan["steps"][0][1]) == 1:
 					continue
-				elif game.get_time_remaining() > -40:
+				elif game.get_time_remaining() > 10:
 					drones_plans.remove(plan)
 					target = target_city(game, drone.location)
 					new_plan = GPS(game, drone, target.location)
-					drones_plans.append({"id": drone.id, "steps": new_plan})
+					drones_plans.append({"id": drone.id, "steps": new_plan, "turns": 0})
 				else:
 					drones_plans.remove(plan)
-
+		
+		#remaiking planes
+        while game.get_time_remaining() < 10:
+            most_irrelevant_plan_score = -1<<30
+            most_irrelevant_plan = {}
+            most_irrelevant_plan_drone = []
+            for plan in drones_plans:
+                plan_score = 0
+                plan_drone = game.get_my_drone_by_id(plan["id"])
+                if plan_drone != None: 
+                    plan_score = plan["turns"] - abs(plan_drone.location.row - plan["steps"][-1][0]) - abs(plan_drone.location.col - plan["steps"][-1][-1]) 
+                if plan_score > most_irrelevant_plan_score:
+                    most_irrelevant_plan = plan
+                    most_irrelevant_plan_score = plan_score
+                    most_irrelevant_plan_drone = plan_drone
+            if most_irrelevant_plan_score > 0:
+                drones_plans.remove(most_irrelevant_plan)
+                target = target_city(game, most_irrelevant_plan_drone.location)
+                new_plan = GPS(game, most_irrelevant_plan_drone, target.location)
+            	drones_plans.append({"id": drone.id, "steps": new_plan, "turns": 0})
+            else:
+                break
+        
 		#debug(game, "Num of drones: "+str(len(drones))+' '+str(len(game.get_my_living_drones())))
 		#debug(game, "We have plans for "+str(len(drones_plans))+' drones')
-		# executing drones planes
-		for plan in drones_plans:
-			if plan["steps"] != [] and plan["id"] in living_drones_ids:
-				drone = game.get_my_drone_by_id(plan["id"])
-				next_step = Location(plan["steps"][0][0], plan["steps"][0][-1])
-				if drone in drones[:]:
-					drones.remove(drone)
-					game.set_sail(drone, next_step)
-				plan["steps"] = plan["steps"][1:]
+		# executing drones plans
+        for plan in drones_plans:
+            if plan["steps"] != [] and plan["id"] in living_drones_ids:
+                drone = game.get_my_drone_by_id(plan["id"])
+                next_step = Location(plan["steps"][0][0], plan["steps"][0][-1])
+                if drone in drones[:]:
+                	drones.remove(drone)
+                	game.set_sail(drone, next_step)
+                plan["steps"] = plan["steps"][1:]
 
 	# Find the average position of my pirates and the left/right wall,
 	# and send the drones there. If enemy pirate is close to point then move point closer to spawn point
@@ -1004,6 +1043,7 @@ def GPS(game, drone, destination):
 	directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 	score_dir = []
 	next_to = []
+	#finds the order of directions that takes the drone as farther from the middle and from the enemy_ave_spawn as posible
 	for dir in directions:
 		not_inserted = True
 		dir_row = drone.location.row + dir[0]
@@ -1017,11 +1057,12 @@ def GPS(game, drone, destination):
 		if not_inserted:
 			score_dir.append(dir_score)
 			next_to.append(dir)
-	debug(game, str(drone) + " " + str(next_to))
+	#debug(game, str(drone) + " " + str(next_to))
+	#looping for even threw the needs checking list intill it finds the goal (and the shortest path to there)
 	while True:
 		tile = needs_checking[0]  # setting the tile with the best value to be the one we are checking
 		if tile['index'] == destination:  # if this tile is the destination we return the road we found to this tile
-			debug(game, board[destination]['road'])
+			#debug(game, board[destination]['road'])
 			return board[destination]['road']
 		needs_checking = needs_checking[1:]  # taking the tile we are checking out of needs_checking
 		# we are checking all the tiles that next to the tile we are checking and
@@ -1054,12 +1095,17 @@ def GPS(game, drone, destination):
 						needs_checking.append(board[(row, col)])  # we append it ate the end of the needs_checking list
 #Checks if the enemy bot is playing defensively around our city or neutral city
 def is_defensive(game):
+    
 	highest = filter(lambda x: danger_board[x] > 4, danger_board)
+	pirates_spawning_near_city = 0
 	for city in game.get_my_cities() + game.get_neutral_cities():
+	    for pirate in game.get_enemy_living_pirates():
+	        if city.distance(pirate.initial_location) < 10:
+	            pirates_spawning_near_city += 1
 		for loc in highest[:]:
 			if Location(loc[0], loc[1]).distance(city) > 3:
 				highest.remove(loc)
-	return len(highest) > 0
+	return len(highest) > 0 or pirates_spawning_near_city > 4
 #Checks if the enemy bot is stack drones
 def is_stacking(game):
 	drones = game.get_my_living_drones()
@@ -1122,7 +1168,14 @@ def find_intersection(islands):
 			if middle not in intersects:
 				intersects.append(middle)
 	return intersects
-		
+	
+def get_neutral_cities(game):
+    try:
+        game.get_neutral_cities()
+    except NameError:
+        return []
+    else:
+        return game.get_neutral_cities()
 #For turning on and off printing to console easily (done with the constanst DEBUG which appears in the beginning of the file)
 def debug(game, message):
 	if DEBUG:
