@@ -180,7 +180,7 @@ def choose_state(game):
 	elif game.get_max_drones_count() == 1:
 		game_state = "CONTROL"
 		
-	elif game.get_turn() < EARLY_TURNS and len(game.get_my_islands()) == 0:
+	elif game.get_turn() < EARLY_TURNS and (len(game.get_my_islands()) == 0 or len(game.get_my_living_drones()) == 0):
 		game_state = "EARLY"
 	# line 1 of if - states to rush drom
 	# line 2 - 
