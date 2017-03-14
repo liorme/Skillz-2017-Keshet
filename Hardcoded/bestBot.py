@@ -461,3 +461,4 @@ def turns_remaining_to_battle(battle):
 
 def update_location_pirate(battle, all_pirates, game):
     pass
+    
