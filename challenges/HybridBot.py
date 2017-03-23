@@ -151,7 +151,9 @@ def do_turn(game):
 	handle_pirates(game, game_state, battles)
 	handle_drones(game, game_state)
 	handle_decoy(game, game_state)
-
+	game.debug(str(game.get_enterprise()) + "  " + str(game.get_required_defense_points())+ "  " + str(game.get_dome_max_health()))
+	if game.get_my_dome():
+		game.debug(str(game.get_my_dome().current_health))
 	debug(game, "Time remaining for turn: " + str(game.get_time_remaining()) + "ms")
 
 #UTILITY
@@ -221,6 +223,24 @@ def handle_pirates(game, game_state, battles):
 		if not_moving(enemy):
 			enemy_pirates.remove(enemy)
 
+	# Make a dome
+	if check_dome(game):
+		max_pirates = 0
+		dome_battle = None
+		for battle in battles:
+			if len(battle.get_enemy_pirates()) > max_pirates:
+				max_pirates = len(battle.get_enemy_pirates())
+				dome_battle = battle
+		game.debug(dome_battle)
+		if dome_battle != None:
+			game.dome(dome_battle.get_my_location_pirate())
+			if dome_battle.get_my_location_pirate() in pirates:
+				pirates.remove(dome_battle.get_my_location_pirate())
+		else:
+			pirate = best_move(pirates, enemy_pirates).get_aircraft()
+			game.dome(pirate)
+			if pirate in pirates:
+				pirates.remove(pirate)
 	# make a decoy
 	if game_state == "RUSH" and len(pirates) > 0:
 		move = best_move(pirates, game.get_my_cities())
@@ -637,7 +657,7 @@ def handle_drones(game, game_state):
 					drones_plans.remove(plan)
 		
 		#remaiking planes
-        while game.get_time_remaining() < 10:
+        while game.get_time_remaining() > 10:
             most_irrelevant_plan_score = -1<<30
             most_irrelevant_plan = {}
             most_irrelevant_plan_drone = []
@@ -1149,7 +1169,10 @@ def not_moving(pirate):
 def target_city(game, stack_location):
 	best_score = 9999999
 	best_city = None
-	for city in game.get_my_cities() + game.get_neutral_cities():
+	destinations = game.get_my_cities() + game.get_neutral_cities()
+	if not game.get_my_dome() and game.get_my_defense_points() < game.get_required_defense_points():
+		destinations.append(game.get_enterprise())
+	for city in destinations:
 		score = city.distance(stack_location)/city.value_multiplier
 		if score < best_score:
 			best_city = city
@@ -1168,7 +1191,11 @@ def find_intersection(islands):
 			if middle not in intersects:
 				intersects.append(middle)
 	return intersects
-	
+
+def check_dome(game):
+	if not game.get_my_dome() and game.get_my_defense_points() >= game.get_required_defense_points():
+		return True
+	return False
 def get_neutral_cities(game):
     try:
         game.get_neutral_cities()
