@@ -2,7 +2,7 @@
 
 
 ### Written by: Elool Yanover, Lior Meyer, Amir Mann, Amir Aboutboul and Bary Levi from the Keshet Democratic School in Zichron Yaacov, Israel
-This is the full code, including all our development history, from the fist stage of the competition to the finals
+This is the full code, including all our development history, from the first stage of the competition to the finals
 
 ## License 
 MIT License
